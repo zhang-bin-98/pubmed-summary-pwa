@@ -1,0 +1,14 @@
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation>
+      <PMID>123</PMID>
+      <Article>
+        <ArticleTitle>Preserve THIS Title</ArticleTitle>
+        <Abstract><AbstractText Label="BACKGROUND">First section.</AbstractText><AbstractText Label="RESULTS">Second section.</AbstractText></Abstract>
+        <AuthorList><Author><LastName>Wang</LastName><ForeName>Li</ForeName><AffiliationInfo><Affiliation>Example Hospital</Affiliation></AffiliationInfo></Author></AuthorList>
+        <Journal><ISSN>0000</ISSN><JournalIssue><Volume>7</Volume><Issue>2</Issue><PubDate><Year>2026</Year><Month>Aug</Month></PubDate></JournalIssue><Title>Example Journal</Title><ISOAbbreviation>Ex J</ISOAbbreviation></Journal>
+        <Pagination><MedlinePgn>10-15</MedlinePgn></Pagination>
+      </Article>
+    </MedlineCitation>
+  </PubmedArticle>
+</PubmedArticleSet>
