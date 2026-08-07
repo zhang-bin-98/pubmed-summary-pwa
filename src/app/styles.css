@@ -67,7 +67,7 @@ textarea.input { min-height: 112px; resize: vertical; overflow-wrap: anywhere; l
 .stage-row { min-height: 48px; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: center; border-bottom: 1px solid var(--border); }
 .stage-row > svg { color: var(--accent); }
 .stage-row small { color: var(--muted); }
-.stats { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.stats { margin: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .stats > div { min-width: 0; padding: 12px; background: var(--surface); border-right: 1px solid var(--border); }
 .stats > div:last-child { border-right: 0; }
 .stats dt { color: var(--muted); font-size: 13px; }
@@ -95,8 +95,9 @@ textarea.input { min-height: 112px; resize: vertical; overflow-wrap: anywhere; l
   .run-row { grid-template-columns: 1fr; gap: 8px; padding: 12px 0; }
   .menu-actions { justify-content: flex-start; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stats > div:nth-child(2) { border-right: 0; }
-  .stats > div:nth-child(-n + 2) { border-bottom: 1px solid var(--border); }
+  .stats > div:nth-child(2n) { border-right: 0; }
+  .stats > div:nth-child(-n + 4) { border-bottom: 1px solid var(--border); }
+  .stats > div:last-child:nth-child(odd) { grid-column: span 2; }
   .form-actions .button { flex: 1 1 160px; }
 }
 

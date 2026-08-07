@@ -91,7 +91,8 @@ export function useReviewController(settings: AppSettings) {
       stats.fetched = stored?.articles.length ?? result.screenedArticles.length;
       stats.withAbstract = stored?.articles.filter((article) => article.abstract.trim().length > 0).length ?? result.screenedArticles.length;
       stats.relevant = result.screenedArticles.filter((item) => item.decision.include).length;
-      stats.selected = result.articles.length;
+      stats.contextSelected = result.articles.length;
+      stats.selected = result.review.references.length;
       run = { ...run, stage: 'completed', status: 'completed', updatedAt: Date.now(), stats };
       await saveRun(run);
       setState({ kind: 'completed', runId, stats });

@@ -1,5 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import type { Article, Author } from '../domain/models';
+import { decodeNumericEntities } from '../domain/text';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -12,9 +13,9 @@ const asArray = <T>(value: T | T[] | undefined): T[] =>
   value === undefined ? [] : Array.isArray(value) ? value : [value];
 
 const textOf = (value: unknown): string => {
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'string' || typeof value === 'number') return decodeNumericEntities(String(value));
   if (value && typeof value === 'object' && '#text' in value) {
-    return String((value as Record<string, unknown>)['#text'] ?? '');
+    return decodeNumericEntities(String((value as Record<string, unknown>)['#text'] ?? ''));
   }
   return '';
 };

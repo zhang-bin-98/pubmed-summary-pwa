@@ -1,7 +1,41 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReviewRun } from '../domain/models';
 import { buildArticlesCsv, buildRunJson, downloadBlob } from '../export/dataExport';
-import { clearHistoryData, deleteRun as deleteStoredRun, getRunBundle, listRuns } from '../storage/repositories';
+import { clearHistoryData, deleteRun as deleteStoredRun, getArtifact, getRunBundle, listRuns, saveRun } from '../storage/repositories';
+
+export function normalizeCompletedRunStats(run: ReviewRun, referenceCount: number): ReviewRun {
+  if (run.status !== 'completed') return run;
+  const contextSelected = run.stats.contextSelected ?? run.stats.selected;
+  if (run.stats.contextSelected === contextSelected && run.stats.selected === referenceCount) return run;
+  return {
+    ...run,
+    stats: { ...run.stats, contextSelected, selected: referenceCount },
+  };
+}
+
+export async function repairLegacyRunStats(
+  runs: ReviewRun[],
+  loadReferenceCount: (runId: string) => Promise<number | undefined>,
+  persist: (run: ReviewRun) => Promise<unknown>,
+): Promise<ReviewRun[]> {
+  return Promise.all(runs.map(async (run) => {
+    if (run.status !== 'completed' || run.stats.contextSelected !== undefined) return run;
+    let referenceCount: number | undefined;
+    try {
+      referenceCount = await loadReferenceCount(run.id);
+    } catch {
+      return run;
+    }
+    if (referenceCount === undefined) return run;
+    const normalized = normalizeCompletedRunStats(run, referenceCount);
+    try {
+      await persist(normalized);
+    } catch {
+      // The repaired value can still be shown for this session if IndexedDB rejects the write.
+    }
+    return normalized;
+  }));
+}
 
 export function useHistory(onResume?: (runId: string) => Promise<void> | void) {
   const [runs, setRuns] = useState<ReviewRun[]>([]);
@@ -9,7 +43,15 @@ export function useHistory(onResume?: (runId: string) => Promise<void> | void) {
   const [storage, setStorage] = useState<{ usage?: number; quota?: number }>();
 
   const refresh = useCallback(async () => {
-    setRuns(await listRuns());
+    const storedRuns = await listRuns();
+    setRuns(storedRuns);
+    const normalizedRuns = await repairLegacyRunStats(
+      storedRuns,
+      async (runId) => (await getArtifact(runId))?.references?.length,
+      saveRun,
+    );
+    const normalizedById = new Map(normalizedRuns.map((run) => [run.id, run]));
+    setRuns((currentRuns) => currentRuns.map((run) => normalizedById.get(run.id) ?? run));
     if (navigator.storage?.estimate) {
       try {
         const estimate = await navigator.storage.estimate();

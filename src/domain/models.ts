@@ -53,6 +53,7 @@ export interface RunStats {
   fetched?: number;
   withAbstract?: number;
   relevant?: number;
+  contextSelected?: number;
   selected?: number;
 }
 

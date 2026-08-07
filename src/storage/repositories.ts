@@ -16,6 +16,7 @@ export const saveScreening = (decisions: ScreeningDecision[]) => db.screening.bu
 export const saveArtifact = (artifact: GenerationArtifact) => db.artifacts.put(artifact);
 export const saveCheckpoint = (checkpoint: Checkpoint) => db.checkpoints.put(checkpoint);
 export const listRuns = () => db.runs.orderBy('updatedAt').reverse().toArray();
+export const getArtifact = (runId: string) => db.artifacts.get(runId);
 
 export async function getRunBundle(runId: string) {
   const [run, articles, screening, artifact, checkpoints] = await Promise.all([

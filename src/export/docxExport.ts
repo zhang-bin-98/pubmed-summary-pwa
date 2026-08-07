@@ -1,4 +1,5 @@
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx';
+import { decodeNumericEntities } from '../domain/text';
 
 export interface DocxReviewInput {
   title: string;
@@ -15,7 +16,7 @@ function paragraphsFromMarkdown(markdown: string): Paragraph[] {
       textLines = [];
     }
   };
-  for (const line of markdown.replaceAll('\r\n', '\n').split('\n')) {
+  for (const line of decodeNumericEntities(markdown).replaceAll('\r\n', '\n').split('\n')) {
     const heading = line.match(/^(#{2,3})\s+(.+)$/);
     if (heading) {
       flushText();
@@ -31,11 +32,11 @@ function paragraphsFromMarkdown(markdown: string): Paragraph[] {
 }
 
 export async function buildDocxBlob(input: DocxReviewInput): Promise<Blob> {
-  const children: Paragraph[] = [new Paragraph({ text: input.title, heading: HeadingLevel.TITLE })];
+  const children: Paragraph[] = [new Paragraph({ text: decodeNumericEntities(input.title), heading: HeadingLevel.TITLE })];
   children.push(...paragraphsFromMarkdown(input.markdown));
   if (input.references.length > 0) {
     children.push(new Paragraph({ text: '参考文献', heading: HeadingLevel.HEADING_1 }));
-    children.push(...input.references.map((reference, index) => new Paragraph({ text: `${index + 1}. ${reference}` })));
+    children.push(...input.references.map((reference, index) => new Paragraph({ text: `${index + 1}. ${decodeNumericEntities(reference)}` })));
   }
   return Packer.toBlob(new Document({ sections: [{ children }] }));
 }

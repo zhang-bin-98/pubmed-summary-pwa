@@ -143,7 +143,7 @@ export async function runWorkflow(input: WorkflowInput, deps: WorkflowDeps): Pro
       completed: 2,
       total: 7,
       message: `正在选择上下文并生成大纲（${selectedArticles.length} 篇入选，${relevantCount} 篇相关）`,
-      stats: { fetched: articles.length, withAbstract: withAbstractCount, relevant: relevantCount, selected: selectedArticles.length },
+      stats: { fetched: articles.length, withAbstract: withAbstractCount, relevant: relevantCount, contextSelected: selectedArticles.length },
     });
     assertNotAborted(input.signal);
     const outlineCheckpoint = await deps.loadCheckpoint<string>('outlining', input.runId);
@@ -173,7 +173,13 @@ export async function runWorkflow(input: WorkflowInput, deps: WorkflowDeps): Pro
       await deps.checkpoint('validating-citations', review, input.runId);
     }
     assertNotAborted(input.signal);
-    deps.onProgress?.({ stage: 'exporting', completed: 6, total: 7, message: '正在导出 Word 文档' });
+    deps.onProgress?.({
+      stage: 'exporting',
+      completed: 6,
+      total: 7,
+      message: `正在导出 Word 文档（正文实际引用 ${review.references.length} 篇）`,
+      stats: { fetched: articles.length, withAbstract: withAbstractCount, relevant: relevantCount, contextSelected: selectedArticles.length, selected: review.references.length },
+    });
     await deps.exportDocx(review, input);
     await deps.checkpoint('exporting', review, input.runId);
     deps.onProgress?.({ stage: 'completed', completed: 7, total: 7, message: '综述已完成' });

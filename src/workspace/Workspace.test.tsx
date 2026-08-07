@@ -20,10 +20,18 @@ it('requires editing confirmation before starting a 300-result run', async () =>
 });
 
 it('shows completion actions without rendering the generated body', () => {
-  render(<Workspace settings={settings} controller={{ generateQuery: vi.fn(), startRun: vi.fn(), cancel: vi.fn(), state: { kind: 'completed', runId: 'r', stats: { fetched: 286, withAbstract: 231, relevant: 74, selected: 60 } } }} />);
+  render(<Workspace settings={settings} controller={{ generateQuery: vi.fn(), startRun: vi.fn(), cancel: vi.fn(), state: { kind: 'completed', runId: 'r', stats: { fetched: 286, withAbstract: 231, relevant: 74, contextSelected: 60, selected: 42 } } }} />);
   expect(screen.getByRole('button', { name: '再次下载' })).toBeInTheDocument();
   expect(screen.queryByText(/## 1\./)).not.toBeInTheDocument();
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+});
+
+it('distinguishes context selection from references used in the final body', () => {
+  render(<Workspace settings={settings} controller={{ generateQuery: vi.fn(), startRun: vi.fn(), cancel: vi.fn(), state: { kind: 'completed', runId: 'r', stats: { contextSelected: 133, selected: 95 } } }} />);
+  expect(screen.getByText('上下文')).toBeInTheDocument();
+  expect(screen.getByText('正文引用')).toBeInTheDocument();
+  expect(screen.getByText('133')).toBeInTheDocument();
+  expect(screen.getByText('95')).toBeInTheDocument();
 });
 
 it('shows the live operation message while a run is in progress', () => {

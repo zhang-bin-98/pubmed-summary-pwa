@@ -30,7 +30,7 @@ const STAGES = [
 ] as const;
 
 function Stats({ stats }: { stats: RunStats }) {
-  return <dl className="stats"><div><dt>已抓取</dt><dd>{stats.fetched ?? 0}</dd></div><div><dt>有摘要</dt><dd>{stats.withAbstract ?? 0}</dd></div><div><dt>相关</dt><dd>{stats.relevant ?? 0}</dd></div><div><dt>入选</dt><dd>{stats.selected ?? 0}</dd></div></dl>;
+  return <dl className="stats"><div><dt>已抓取</dt><dd>{stats.fetched ?? 0}</dd></div><div><dt>有摘要</dt><dd>{stats.withAbstract ?? 0}</dd></div><div><dt>相关</dt><dd>{stats.relevant ?? 0}</dd></div><div><dt>上下文</dt><dd>{stats.contextSelected ?? 0}</dd></div><div><dt>正文引用</dt><dd>{stats.selected ?? 0}</dd></div></dl>;
 }
 
 export function Workspace({ settings, controller, onOpenSettings, online = true }: WorkspaceProps) {
