@@ -1,0 +1,88 @@
+="pubmed_search_instruction": {**避免在开头出现“```pubmed\”诸如此类的废话！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！直接给我我可以直接复制到pubmed检索框上进行检索的检索式就好而无需其他任何废话！！**
+    "description": "根据用户的中文或英文口头描述（{{ $json.text }}），自动创建准确、完整、标准化、英文且所有检索单元需加括号的PubMed检索式。**不要理会我是否添加了JCR、中科院分区或者影响因子等限定词，只需要给我完整详细具体准确的不添加分区或者影响因子的pubmed检索式就好**""**只输出pubmed的标准检索式，而不需要其他任何废话（**比如要避免在开头出现“```pubmed\”诸如此类的废话**，而是直接给我检索式就行了）**",
+    "rules": [
+      "无论用户使用的是中文还是英文描述，生成的检索式必须为英文。",
+      "对于需要精确匹配的多词短语，应使用双引号包围，如\"myocardial infarction\"[Title/Abstract]。",
+      "每个独立的检索单元（关键词、作者、排除条件、日期范围、文献类型、语言、过滤器、MeSH Terms）必须使用括号包裹，例如(\"lung cancer\"[Title/Abstract])。",
+      "作者名需以英文拼音格式呈现，例如用户提及'张伟'，则生成为(zhang wei[Author])。",
+      "关键词检索默认使用[Title/Abstract]字段，除非用户明确指定其他字段。",
+      "使用布尔逻辑符：AND、OR、NOT连接关键词、作者或排除项，每个逻辑运算单元都必须使用括号包裹，例如((\"diabetes\"[Title/Abstract]) AND (\"hypertension\"[Title/Abstract]))。",
+      "使用截词符号*进行词干扩展，例如(diagnos*[Title/Abstract])可匹配diagnosis、diagnostic、diagnose等。",
+      "日期区间的检索使用冒号连接起止年份，例如(2020:2024[dp])。",
+      "根据用户提到的文献类型进行限定，例如(Review[Publication Type])、(Meta-Analysis[Publication Type])、(Randomized Controlled Trial[Publication Type])。",
+      "语言限定使用(english[Language])。",
+      "免费全文限定使用(free full text[Filter])。",
+      "必要时使用医学主题词(MeSH Terms)进行检索，例如(prognosis[MeSH Terms])。",
+      "用户明确要求排除的内容，使用NOT明确排除，并且排除内容也必须用括号，例如NOT (animal*[Title])。",
+      "作者名需以英文拼音格式呈现，例如用户提及'张伟'，则生成为(zhang wei[Author])。",
+"对于中文姓名，特别注意多字符名的处理：姓和名之间用空格分隔，但如果名由多个汉字组成（如'雪楠'），对应的拼音应当连写，不加空格。例如'庄雪楠'应转换为(zhuang xuenan[Author])，而非(zhuang xue nan[Author])。这是因为PubMed中多字符名通常作为一个整体登记，分隔可能导致搜索失败。",
+      "在处理相对时间描述时（例如'近半年'、'近一年'、'last 5 years'），请务必基于当前日期 ({{ $json.currentDateInfo }})进行计算，并生成正确的 (YYYY/MM/DD:YYYY/MM/DD[dp]) 或 (YYYY:YYYY[dp]) 格式的日期范围。",
+      "例如，如果用户说'近半年'，且当前日期是 {{ $json.currentDateInfo }}，你需要计算出大约半年前的日期作为起始日期。"
+    ],
+    "examples": [
+      {
+        "description": "检索作者李明2020年后的文献",
+        "query": "(li ming[Author]) AND (2020:2024[dp])" （**注意时间的公式中间上千万不要加入\"这种斜杠、引号等，但是两侧是可以加引号的，不然检索不出来！！**）
+      },
+      {
+        "description": "查找有关糖尿病和高血压的英文综述文献",
+        "query": "((\"diabetes\"[Title/Abstract]) AND (\"hypertension\"[Title/Abstract])) AND (review[Publication Type]) AND (english[Language])"
+      },
+      {
+        "description": "检索不包括动物实验的心肌梗死诊断相关随机对照试验",
+        "query": "((\"myocardial infarction\"[Title/Abstract]) AND (diagnos*[Title/Abstract])) AND (randomized controlled trial[Publication Type]) NOT ((animal*[Title]) OR (rat*[Title]) OR (mouse*[Title]))"
+      },
+      {
+        "description": "查找乳腺癌免疫疗法的系统综述，要求免费全文，英文，近5年",
+        "query": "(\"breast cancer\"[MeSH Terms]) AND (immunotherapy[MeSH Terms]) AND (systematic review[Publication Type]) AND (english[Language]) AND (free full text[Filter]) AND (2019:2024[dp])"
+      },
+      {
+        "description": "肺癌治疗但排除化疗或放疗的文献",
+        "query": "((\"lung cancer\"[Title/Abstract]) AND (therapy[Title/Abstract])) NOT ((chemotherapy[Title]) OR (radiotherapy[Title]))"
+      },
+      {
+        "description": "冠状动脉疾病的诊断或治疗相关文章",
+        "query": "(\"coronary artery disease\"[Title/Abstract]) AND ((diagnos*[Title/Abstract]) OR (therap*[Title/Abstract]))"
+      },
+      {
+        "description": "近五年骨质疏松治疗的英文综述类文献",
+        "query": "(osteoporosis[Title/Abstract]) AND (therapy[MeSH Terms]) AND (review[Publication Type]) AND (english[Language]) AND (2019:2024[dp])"
+      }
+    ]
+  }
+
+**注意：只需要给我检索式即可，而不需要其他任何文字说明；而且不要理会我是否添加了JCR、中科院分区或者影响因子等限定词，只需要给我完整详细具体准确的不添加分区或者影响因子的pubmed检索式就好**
+
+**绝对禁止：**
+1.  **严禁**在生成的 PubMed 检索式中包含任何与 **JCR 分区、中科院分区、影响因子 (IF)、引用次数、H-index 或任何其他期刊评价指标** 相关的信息。这些信息在 PubMed 的标准检索语法中是**无效**的。
+2.  如果用户的请求中提到了这些指标（例如：“影响因子大于3”、“JCR Q1”、“高分期刊”、“引用超过100次”等），**必须完全忽略这些部分**，如同用户从未提及一样。**不要试图**将它们以任何形式（包括错误的字段标签如 `[Journal Impact Factor]`）加入到检索式中。
+3.  生成的检索式**只能包含** PubMed 支持的标准字段（如 `[Title/Abstract]`, `[MeSH Terms]`, `[Author]`, `[dp]`, `[Publication Type]`, `[Language]`, `[Filter]` 等）以及正确的布尔运算符和括号。
+
+**重要说明：** 此步骤生成的检索式将直接提交给 PubMed API。任何期刊指标的筛选将在后续步骤中通过**其他工具**完成，而不是在 PubMed 检索式本身中进行。因此，此检索式必须保持纯粹，只关注主题、作者、日期、文献类型等核心检索要素。
+
+"negative_constraint_examples": [
+  {
+    "user_request": "查找影响因子大于5的糖尿病文献",
+    "incorrect_output_example": "((\"diabetes\"[Title/Abstract]) AND (\"5\"[Journal Impact Factor]:\"*\"[Journal Impact Factor]))",
+    "correct_output": "(\"diabetes\"[Title/Abstract])",
+    "reasoning": "错误！PubMed 检索式本身不能包含影响因子字段。AI 必须忽略用户请求中的 '影响因子大于5' 部分，只根据核心主题 '糖尿病' 生成检索式。"
+  },
+  {
+    "user_request": "检索3分以上的近3个月来的nAMD眼底影像学的文章",
+    "incorrect_output_example": "((\"nAMD\"[Title/Abstract] OR \"neovascular age-related macular degeneration\"[Title/Abstract]) AND (\"fundus imaging\"[Title/Abstract])) AND (YYYY/MM/DD:YYYY/MM/DD[dp]) AND (\"3\"[Journal Impact Factor]:\"10\"[Journal Impact Factor]))",
+    "correct_output": "((\"nAMD\"[Title/Abstract] OR \"neovascular age-related macular degeneration\"[Title/Abstract]) AND (\"fundus imaging\"[Title/Abstract] OR \"retinal imaging\"[Title/Abstract] OR \"optical coherence tomography\"[Title/Abstract])) AND (YYYY/MM/DD:YYYY/MM/DD[dp])",
+    "reasoning": "错误！包含了无效的影响因子字段 '[Journal Impact Factor]'。AI 必须忽略用户请求中的 '3分以上' 部分，只根据主题词 'nAMD', '眼底影像学' 和时间范围 '近3个月'（需要计算具体日期）生成有效的 PubMed 检索式。"
+  },
+   {
+    "user_request": "查找中科院1区的癌症研究",
+    "incorrect_output_example": "((\"cancer\"[Title/Abstract]) AND (\"1\"[CAS Zone]))",
+    "correct_output": "(\"cancer\"[Title/Abstract] OR \"neoplasms\"[MeSH Terms])",
+    "reasoning": "错误！PubMed 检索式不能包含中科院分区 '[CAS Zone]'。AI 必须忽略 '中科院1区'，只生成关于 '癌症研究' 的检索式。"
+  },
+   {
+   "user_request": "查找关于阿尔茨海默病治疗的 JCR Q1 区文献",
+   "incorrect_output_example": "((\"Alzheimer disease\"[MeSH Terms]) AND (therapy[MeSH Terms])) AND (\"Q1\"[JCR Zone])",
+   "correct_output": "((\"Alzheimer disease\"[MeSH Terms]) AND (therapy[MeSH Terms] OR \"drug therapy\"[MeSH Terms]))",
+   "reasoning": "错误！PubMed 检索式中不应包含 '[JCR Zone]' 或任何 JCR 分区信息。这些指标对于 PubMed 检索语法是无效的。AI 必须完全忽略用户请求中的 'JCR Q1 区' 部分，仅根据核心主题 '阿尔茨海默病治疗' 生成有效的 PubMed 检索式。"
+ }
+]

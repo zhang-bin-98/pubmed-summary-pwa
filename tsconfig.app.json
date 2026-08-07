@@ -16,7 +16,7 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "jsx": "react-jsx",
-    "types": ["vitest/globals", "vite/client", "@testing-library/jest-dom"]
+    "types": ["node", "vitest/globals", "vite/client", "@testing-library/jest-dom"]
   },
   "include": ["src"]
 }
