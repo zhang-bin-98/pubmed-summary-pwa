@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, Circle, Download, LoaderCircle, OctagonX, RotateCcw } from 'lucide-react';
 import type { AppSettings, ReviewMode, RunStats } from '../domain/models';
 import type { GenerateQueryInput, ReviewControllerState, StartRunInput } from './useReviewController';
@@ -40,7 +40,6 @@ export function Workspace({ settings, controller, onOpenSettings, online = true 
   const [mode, setMode] = useState<ReviewMode>('one-click');
   const [query, setQuery] = useState('');
   const [count, setCount] = useState<number | null>(null);
-  const previousStateKind = useRef<ReviewControllerState['kind']>('idle');
   const confirming = count !== null && controller.state.kind !== 'running' && controller.state.kind !== 'completed';
 
   useEffect(() => {
@@ -49,12 +48,6 @@ export function Workspace({ settings, controller, onOpenSettings, online = true 
       setCount(controller.state.count);
     }
   }, [controller.state]);
-
-  useEffect(() => {
-    const wasRunning = previousStateKind.current === 'running';
-    previousStateKind.current = controller.state.kind;
-    if (wasRunning && controller.state.kind === 'completed') void controller.download?.(controller.state.runId);
-  }, [controller.state, controller.download]);
 
   const runningState = controller.state.kind === 'running' ? controller.state : undefined;
   const currentStageIndex = useMemo(() => runningState

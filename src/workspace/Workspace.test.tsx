@@ -52,7 +52,7 @@ it('shows completion actions without auto-downloading when the workspace mounts'
   expect(download).not.toHaveBeenCalled();
 });
 
-it('auto-downloads once when a running task transitions to completed', () => {
+it('does not trigger a second download when a running task transitions to completed', () => {
   const download = vi.fn();
   const controller = {
     generateQuery: vi.fn(),
@@ -68,9 +68,9 @@ it('auto-downloads once when a running task transitions to completed', () => {
   };
   const { rerender } = render(<Workspace settings={settings} controller={controller} />);
   rerender(<Workspace settings={settings} controller={{ ...controller, state: { kind: 'completed', runId: 'r', stats: {} } }} />);
-  expect(download).toHaveBeenCalledTimes(1);
+  expect(download).not.toHaveBeenCalled();
   rerender(<Workspace settings={settings} controller={{ ...controller, state: { kind: 'completed', runId: 'r', stats: {} } }} />);
-  expect(download).toHaveBeenCalledTimes(1);
+  expect(download).not.toHaveBeenCalled();
 });
 
 it('distinguishes context selection from references used in the final body', () => {
