@@ -7,14 +7,14 @@
 在现有纯前端 PubMed 综述 PWA 中增加两个能力：
 
 1. 工作台提供“一键生成”模式，自动完成检索式生成、PubMed 查询、相关性筛选、综述生成、引用校验和 Word 导出。
-2. 相关性筛选阶段使用浏览器端可取消的异步并发调度，固定最多 3 个工作槽，减少 300 篇文献的等待时间，同时保留限流、取消、重试和本地恢复能力。
+2. 相关性筛选阶段使用浏览器端可取消的异步并发调度，固定最多 5 个在途请求，并以 1 秒间隔错峰启动批次，减少 300 篇文献的等待时间，同时保留限流、取消、重试和本地恢复能力。
 
 ## 2. 已确认的产品决策
 
 - 保留现有“确认检索式”模式，默认仍要求用户查看和编辑 DeepSeek 生成的 PubMed 检索式。
 - 新增“一键生成”模式；该模式跳过检索式确认页面，但仍保存最终检索式和命中数。
 - 两种模式复用同一检索式提示词、`generateQuery()`、`startRun()` 和 `runWorkflow()`，不复制工作流逻辑。
-- 相关性筛选固定最多 3 路并发，不增加用户配置项。
+- 相关性筛选固定最多 5 路在途请求，不增加用户配置项；相邻批次的启动间隔为 1 秒。
 - 每个筛选批次仍最多 20 篇文章，并沿用现有 token 上限和格式校验。
 - 并行只发生在相关性筛选阶段；抓取、上下文预算、大纲、正文、引用校验和 Word 导出保持现有顺序。
 - “协程”采用浏览器端 `async/await + Promise` 调度。网络请求等待时，其他工作槽继续运行；不引入后端队列、SharedWorker 或 Web Worker 作为本功能前提。
@@ -43,9 +43,9 @@
 
 页面进入运行状态后，筛选阶段的实时消息显示：
 
-`正在筛选相关文献（第 N/总批次批，并行 3 路；已处理 X/Y，相关 Z 篇）`
+`正在筛选相关文献（第 N/总批次批，并行最多 5 路，启动间隔 1 秒；已处理 X/Y，相关 Z 篇）`
 
-三路工作槽不是用户可编辑设置，避免不同设备产生不可预测的限流行为。取消按钮在三个工作槽有请求时都必须中止对应 `fetch`，并保持当前任务的 cancelled 状态。
+五路并发上限和 1 秒启动间隔不是用户可编辑设置，避免不同设备产生不可预测的限流行为。取消按钮在多个工作槽有请求时都必须中止对应 `fetch`，并保持当前任务的 cancelled 状态。
 
 ## 4. 状态与数据模型
 
@@ -60,7 +60,7 @@ interface ReviewRun {
   // existing fields...
   mode?: ReviewMode;
   queryCount?: number;
-  screeningConcurrency?: 3;
+  screeningConcurrency?: 5;
 }
 ```
 
@@ -69,7 +69,7 @@ interface ReviewRun {
 - `mode`：用户选中的模式。
 - `query`：最终实际运行的检索式。
 - `queryCount`：生成检索式后 NCBI 返回的预计命中数。
-- `screeningConcurrency`：固定写入 `3`，用于历史可解释性和未来兼容。
+- `screeningConcurrency`：固定写入 `5`，用于历史可解释性和未来兼容。
 
 旧任务缺少这些字段时按以下方式展示：
 
@@ -101,14 +101,15 @@ interface ScreeningBatchCheckpoint {
 
 ```ts
 interface ScreeningSchedulerOptions {
-  concurrency: 3;
+  concurrency: 5;
+  launchIntervalMs: 1000;
   signal: AbortSignal;
   onBatchComplete?(batchIndex: number, decisions: ScreeningDecision[]): Promise<void> | void;
   completedBatchIndexes?: Set<number>;
 }
 ```
 
-调度器将 `batchArticlesForScreening(articles)` 产生的批次放入索引队列，启动最多 3 个异步 worker。每个 worker 的行为是：
+调度器将 `batchArticlesForScreening(articles)` 产生的批次放入索引队列，启动最多 5 个异步 worker。调度器在每次启动新批次前等待距离上一次启动至少 1 秒；如果已有 5 个请求在途，则等待任一请求完成后再继续。每个 worker 的行为是：
 
 1. 检查 `signal.aborted` 和停止派发标记。
 2. 领取下一个未完成批次。
@@ -120,10 +121,11 @@ Promise 的完成顺序只影响进度事件顺序，不影响最终结果。调
 
 ### 5.2 限流与资源边界
 
-- 并发上限恒为 3，不能被单次任务输入覆盖。
+- 并发上限恒为 5，不能被单次任务输入覆盖。
+- 批次启动间隔恒为 1000ms，不能被单次任务输入覆盖。
 - 每个 worker 复用同一个 DeepSeek client 和同一个 `AbortSignal`。
 - 现有 client 层的 429/5xx 重试保持不变；并发调度器不额外添加指数退避，避免两层重试叠加导致不可预测等待。
-- 不使用 `Promise.all` 一次性提交全部批次；必须使用有限 worker 池，避免同时创建 15 个请求和大量 prompt 字符串。
+- 不使用 `Promise.all` 一次性提交全部批次；必须使用有限 worker 池和启动间隔，避免同时创建 15 个请求和大量 prompt 字符串。
 - XML 解析和 IndexedDB 写入仍在主线程异步阶段执行；若后续真实 profiling 发现 300 篇解析造成明显卡顿，再单独评估 Web Worker，不作为本需求范围。
 
 ## 6. 一键模式数据流
@@ -143,7 +145,7 @@ generateQuery({ topic, modelId })
 ## 7. 恢复与错误处理
 
 - 任务取消：所有在途 `fetch` 接收同一个 abort signal；已保存批次保持在 IndexedDB，任务状态为 cancelled。
-- 页面刷新：历史恢复只复用完整且 ID 集合匹配的筛选批次，未完成批次按原顺序重新进入最多 3 路 worker。
+- 页面刷新：历史恢复只复用完整且 ID 集合匹配的筛选批次，未完成批次按原顺序重新进入最多 5 路 worker，并继续遵守 1 秒启动间隔。
 - 网络中断或 429：沿用 DeepSeek client 的有限重试。单批最终失败时不把该批标记为完成。
 - 任一批次失败：停止领取新批次，等待其他已在途批次写完或取消，任务进入 failed；历史中保留已完成筛选决定和失败摘要。
 - 无相关文献：保持现有 `no-relevant-articles` 终止，不执行大纲和正文调用。
@@ -162,7 +164,7 @@ generateQuery({ topic, modelId })
 
 - 一键模式在生成检索式并拿到命中数后，直接调用 `startRun()`，不显示确认页。
 - 确认模式仍显示检索式确认页，点击开始后才调用 `startRun()`。
-- scheduler 最多同时执行 3 个 batch 请求，15 批输入最终全部完成。
+- scheduler 最多同时执行 5 个 batch 请求，相邻启动间隔为 1 秒，15 批输入最终全部完成。
 - 批次完成顺序乱序时，返回决定按 `sourceOrder` 排序。
 - 某批失败时不再派发新批次，已在途批次正确收尾并抛出错误。
 - abort signal 会取消全部工作槽，且不会把未完成批次写入完整 checkpoint。
@@ -172,7 +174,7 @@ generateQuery({ topic, modelId })
 ### 集成与端到端测试
 
 - 模拟 DeepSeek/NCBI 完成一键模式，验证自动下载 DOCX。
-- 记录并断言并行筛选阶段进度包含 `并行 3 路`、批次序号和已处理统计。
+- 记录并断言并行筛选阶段进度包含 `并行最多 5 路`、`启动间隔 1 秒`、批次序号和已处理统计。
 - 运行中刷新后，历史可以继续未完成批次，不重复调用已完成批次。
 - 桌面和 360px 手机视口下模式切换、运行进度和取消按钮无溢出或遮挡。
 - 离线时一键生成按钮禁用；已完成历史仍可重新导出。
