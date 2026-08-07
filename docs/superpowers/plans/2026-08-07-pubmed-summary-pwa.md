@@ -1184,7 +1184,7 @@ On component unmount, abort only active network work; do not delete checkpoints.
 
 - [ ] **Step 4: Implement the focused single-column Workspace**
 
-The idle view contains a multiline topic input, model select, `10–300` numeric input initialized from settings, and “生成检索式”. The confirmation view contains the editable PubMed query, exact hit count, Back action, and “开始生成”. The running view contains one stable progress bar, completed/current/pending stage rows, statistics, and Cancel. The completed view triggers download once from an effect and retains “再次下载”; it must not render final Markdown.
+The idle view contains a multiline topic input, a mode control defaulting to one-click generation, model select, and `10–300` numeric input initialized from settings. One-click mode uses “一键生成综述” and starts the workflow after query generation; confirm-query mode uses “生成检索式”, then shows the editable PubMed query, exact hit count, Back action, and “开始生成”. The running view contains one stable progress bar, completed/current/pending stage rows, statistics, and Cancel. The completed view triggers download once from an effect and retains “再次下载”; it must not render final Markdown.
 
 Map workflow error codes to concrete Chinese actions: invalid key -> open settings, no abstracts/relevant articles -> edit query, quota -> open history cleanup, citation failure -> retry writing, offline -> wait for network.
 
@@ -1576,16 +1576,7 @@ console.log(`Secret scan passed for ${files.length} files.`);
 
 - [ ] **Step 6: Write operational documentation**
 
-`README.md` must include:
-
-1. Product scope and explicit “no backend / no Feishu” statement.
-2. Node.js 22 prerequisite and `npm ci`, `npm run dev`, `npm test`, `npm run e2e`, `npm run build` commands.
-3. GitHub Pages enablement through GitHub Actions.
-4. User instructions for My NCBI API Key and DeepSeek API Key without screenshots of real keys.
-5. Local-key persistence warning and clear-data instructions.
-6. Offline capabilities and the provider-CORS dependency.
-7. Prompt provenance and the rule that the complete n8n JSON must never be committed.
-8. A release checklist requiring rotation of the credentials exposed in the original n8n export.
+`README.md` must contain only a short product introduction, concise user instructions, and the deployed web-page link. Do not place development, release, security, or architecture documentation in README; keep those details in the project specifications and CI configuration.
 
 - [ ] **Step 7: Run the complete verification matrix**
 
@@ -1626,7 +1617,7 @@ git commit -m "test: verify offline PubMed review workflow"
 - [ ] The application never imports, calls, or documents a Feishu runtime integration.
 - [ ] Both API keys persist only in IndexedDB and can be cleared independently or together.
 - [ ] The default maximum fetch count is `300`, with a valid range of `10–300`.
-- [ ] Query generation pauses for user editing and confirmation.
+- [ ] One-click generation is the default; optional confirm-query mode pauses for user editing and confirmation.
 - [ ] Missing abstracts and low-relevance articles are excluded before the original outline/write stages.
 - [ ] Context selection has no fixed article cap and never truncates an abstract.
 - [ ] Original prompt SHA-256 tests match all three approved values.

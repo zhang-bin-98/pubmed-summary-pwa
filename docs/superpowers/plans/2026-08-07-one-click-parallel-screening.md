@@ -88,7 +88,7 @@ Expected: FAIL because there is no mode control or one-click action.
 
 - [ ] **Step 3: Implement the mode control and automatic handoff**
 
-Use a stable `mode` state (`'confirm-query'` by default) and a labeled radio/segmented control. Keep topic, model, and max-results fields unchanged. In one-click mode, await `controller.generateQuery`, then call `controller.startRun({ topic, query: result.query, queryCount: result.count, mode, modelId, maxResults })`; in confirm mode retain the current confirmation screen and call with `mode: 'confirm-query'`.
+Use a stable `mode` state (`'one-click'` by default) and a labeled radio/segmented control. Keep topic, model, and max-results fields unchanged. In one-click mode, await `controller.generateQuery`, then call `controller.startRun({ topic, query: result.query, queryCount: result.count, mode, modelId, maxResults })`; in confirm mode retain the current confirmation screen and call with `mode: 'confirm-query'`.
 
 - [ ] **Step 4: Update progress text for parallel screening**
 
