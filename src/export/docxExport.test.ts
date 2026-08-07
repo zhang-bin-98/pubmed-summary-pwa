@@ -34,3 +34,40 @@ it('leaves XML-invalid numeric entities as escaped text', async () => {
   expect(documentXml).not.toContain('\u0000');
   expect(documentXml).not.toContain('\uFFFD');
 });
+
+it('applies readable body spacing and first-line indentation', async () => {
+  const blob = await buildDocxBlob({ title: 'Title', markdown: '## 引言\n\n第一段正文。\n\n第二段正文。', references: ['Reference'] });
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const stylesXml = await zip.file('word/styles.xml')?.async('string');
+
+  expect(stylesXml).toContain('<w:style w:type="paragraph" w:styleId="ReviewBody">');
+  expect(stylesXml).toContain('<w:spacing w:after="120" w:line="360" w:lineRule="auto"/>');
+  expect(stylesXml).toContain('<w:ind w:firstLine="480"/>');
+  expect(stylesXml).toMatch(/<w:style w:type="paragraph" w:styleId="ReviewReference">[\s\S]*?<w:spacing w:after="80" w:line="300" w:lineRule="auto"\/>[\s\S]*?<\/w:style>/);
+});
+
+it('uses editable Word multilevel numbering with restrained heading sizes', async () => {
+  const blob = await buildDocxBlob({
+    title: 'Title',
+    markdown: '## 1. 引言\n\n### 1.1 研究背景\n\n#### 1.1.1 关键问题\n\n## 2. 方法',
+    references: [],
+  });
+  const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+  const documentXml = await zip.file('word/document.xml')?.async('string');
+  const numberingXml = await zip.file('word/numbering.xml')?.async('string');
+  const stylesXml = await zip.file('word/styles.xml')?.async('string');
+
+  expect(documentXml).toContain('<w:pStyle w:val="ReviewHeading1"/>');
+  expect(documentXml).toContain('<w:pStyle w:val="ReviewHeading2"/>');
+  expect(documentXml).toContain('<w:pStyle w:val="ReviewHeading3"/>');
+  expect(documentXml).toContain('<w:ilvl w:val="0"/>');
+  expect(documentXml).toContain('<w:ilvl w:val="1"/>');
+  expect(documentXml).toContain('<w:ilvl w:val="2"/>');
+  expect(documentXml).not.toContain('1. 引言');
+  expect(numberingXml).toContain('<w:lvlText w:val="%1."/>');
+  expect(numberingXml).toContain('<w:lvlText w:val="%1.%2"/>');
+  expect(numberingXml).toContain('<w:lvlText w:val="%1.%2.%3"/>');
+  expect(stylesXml).toContain('<w:sz w:val="30"/>');
+  expect(stylesXml).toContain('<w:sz w:val="26"/>');
+  expect(stylesXml).toContain('<w:sz w:val="24"/>');
+});
