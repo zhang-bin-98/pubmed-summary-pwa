@@ -44,3 +44,15 @@ export async function clearAllLocalData() {
   await db.delete();
   await db.open();
 }
+
+export async function clearHistoryData() {
+  await db.transaction('rw', db.runs, db.articles, db.screening, db.artifacts, db.checkpoints, async () => {
+    await Promise.all([
+      db.runs.clear(),
+      db.articles.clear(),
+      db.screening.clear(),
+      db.artifacts.clear(),
+      db.checkpoints.clear(),
+    ]);
+  });
+}

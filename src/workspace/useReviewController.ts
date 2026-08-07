@@ -110,7 +110,7 @@ export function useReviewController(settings: AppSettings) {
     const bundle = await getRunBundle(runId);
     const artifact = bundle?.artifact;
     if (!bundle || !artifact?.validatedMarkdown || !artifact.references) throw new Error('history-incomplete');
-    const blob = await buildDocxBlob({ title: bundle.run.topic, markdown: artifact.validatedMarkdown, references: artifact.references });
+    const blob = await buildDocxBlob({ title: artifact.title || bundle.run.topic, markdown: artifact.validatedMarkdown, references: artifact.references });
     downloadBlob(blob, sanitizeDocxFileName(bundle.run.topic, new Date(bundle.run.updatedAt).toISOString().slice(0, 10)));
   }, []);
 

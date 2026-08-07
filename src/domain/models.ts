@@ -94,6 +94,7 @@ export interface ValidatedReview {
 
 export interface GenerationArtifact {
   runId: string;
+  title?: string;
   outline?: string;
   markdown?: string;
   validatedMarkdown?: string;

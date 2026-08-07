@@ -93,6 +93,7 @@ export function createWorkflowDeps(services: WorkflowServices): WorkflowDeps {
     downloadBlob(blob, sanitizeDocxFileName(review.title || input.topic, new Date().toISOString().slice(0, 10)));
     await repositories.saveArtifact?.({
       runId: input.runId,
+      title: review.title || input.topic,
       outline: artifacts.get(input.runId)?.outline,
       markdown: artifacts.get(input.runId)?.markdown,
       validatedMarkdown: review.markdown,

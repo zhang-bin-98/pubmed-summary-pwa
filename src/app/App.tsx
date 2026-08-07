@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { History, LibraryBig, Settings } from 'lucide-react';
+import { HistoryView } from '../history/HistoryView';
+import { useHistory } from '../history/useHistory';
 import { SettingsView } from '../settings/SettingsView';
 import { useSettings } from '../settings/useSettings';
 import { useReviewController } from '../workspace/useReviewController';
@@ -11,6 +13,12 @@ export function App() {
   const [view, setView] = useState<AppView>('workspace');
   const settingsState = useSettings();
   const reviewController = useReviewController(settingsState.settings);
+  const historyState = useHistory(async (runId) => {
+    setView('workspace');
+    await reviewController.retry(runId);
+  });
+
+  useEffect(() => { if (view === 'history') void historyState.refresh(); }, [historyState.refresh, view]);
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -25,7 +33,7 @@ export function App() {
       </header>
       <main>
         {view === 'workspace' && <Workspace settings={settingsState.settings} controller={reviewController} onOpenSettings={() => setView('settings')} />}
-        {view === 'history' && <section className="workspace"><h2>历史记录</h2></section>}
+        {view === 'history' && <HistoryView runs={historyState.runs} error={historyState.error} storage={historyState.storage} onResume={historyState.resume} onDownloadDocx={historyState.downloadDocx} onExportJson={historyState.exportJson} onExportCsv={historyState.exportCsv} onDelete={historyState.deleteRun} onClear={historyState.clearHistory} />}
         {view === 'settings' && !settingsState.loading && (
           <SettingsView
             initial={settingsState.settings}
