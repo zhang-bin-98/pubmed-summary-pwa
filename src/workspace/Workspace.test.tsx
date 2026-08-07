@@ -16,7 +16,24 @@ it('requires editing confirmation before starting a 300-result run', async () =>
   expect(screen.getByText('预计命中 286 篇')).toBeInTheDocument();
   expect(startRun).not.toHaveBeenCalled();
   await user.click(screen.getByRole('button', { name: '开始生成' }));
-  expect(startRun).toHaveBeenCalledWith(expect.objectContaining({ query: '(cancer[Title])', maxResults: 300 }));
+  expect(startRun).toHaveBeenCalledWith(expect.objectContaining({ query: '(cancer[Title])', queryCount: 286, maxResults: 300, mode: 'confirm-query' }));
+});
+
+it('starts the workflow automatically in one-click mode after counting the query', async () => {
+  const user = userEvent.setup();
+  const generateQuery = vi.fn().mockResolvedValue({ query: '(cancer[Title])', count: 286 });
+  const startRun = vi.fn();
+  render(<Workspace settings={settings} controller={{ generateQuery, startRun, cancel: vi.fn(), state: { kind: 'idle' } }} />);
+  await user.type(screen.getByLabelText('研究主题'), '癌症研究');
+  await user.click(screen.getByRole('radio', { name: '一键生成' }));
+  await user.click(screen.getByRole('button', { name: '一键生成综述' }));
+  expect(startRun).toHaveBeenCalledWith(expect.objectContaining({
+    query: '(cancer[Title])',
+    queryCount: 286,
+    mode: 'one-click',
+    maxResults: 300,
+  }));
+  expect(screen.queryByLabelText('PubMed 检索式')).not.toBeInTheDocument();
 });
 
 it('shows completion actions without rendering the generated body', () => {

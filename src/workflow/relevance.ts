@@ -69,6 +69,124 @@ function estimateInputTokens(article: Article): number {
   return Math.ceil((article.title.length + article.abstract.length) * 1.15);
 }
 
+export async function screenArticleBatch(
+  topic: string,
+  batch: Article[],
+  client: Pick<DeepSeekClient, 'complete'>,
+  model: string,
+  signal: AbortSignal,
+): Promise<ScreeningDecision[]> {
+  const expectedIds = batch.map((article) => article.id);
+  const request = (prompt: string): CompletionRequest => ({ model, prompt, signal, json: true, temperature: 0 });
+  let payload: ScreeningDecisionPayload[] | undefined;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const raw = await client.complete(request(buildRelevancePrompt(topic, batch)));
+    try {
+      payload = validateScreeningBatch(raw, expectedIds);
+      break;
+    } catch (error) {
+      if (!(error instanceof ScreeningFormatError) || attempt === 1) {
+        if (error instanceof ScreeningFormatError) throw Object.assign(error, { code: 'screening-format' });
+        throw error;
+      }
+    }
+  }
+  if (!payload) throw Object.assign(new Error('Screening response was empty'), { code: 'screening-format' });
+  const bySourceId = new Map(payload.map((decision) => [decision.sourceId, decision]));
+  return batch.map((article) => {
+    const decision = bySourceId.get(article.id)!;
+    return {
+      id: `${article.id}:screening`,
+      runId: article.runId,
+      articleId: article.id,
+      score: decision.score,
+      include: decision.include,
+      reason: decision.reason,
+      promptVersion: RELEVANCE_PROMPT_VERSION,
+    } satisfies ScreeningDecision;
+  });
+}
+
+export interface ScreeningSchedulerOptions {
+  concurrency: 5;
+  launchIntervalMs: 1000;
+  signal: AbortSignal;
+  onBatchComplete?: (batchIndex: number, decisions: ScreeningDecision[]) => Promise<void> | void;
+  completedBatchIndexes?: Set<number>;
+  completedBatches?: Map<number, ScreeningDecision[]>;
+}
+
+function abortableDelay(milliseconds: number, signal: AbortSignal): Promise<void> {
+  if (milliseconds <= 0) return Promise.resolve();
+  if (signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', abort);
+      resolve();
+    }, milliseconds);
+    const abort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    signal.addEventListener('abort', abort, { once: true });
+  });
+}
+
+export async function screenArticlesParallel(
+  topic: string,
+  articles: Article[],
+  client: Pick<DeepSeekClient, 'complete'>,
+  model: string,
+  options: ScreeningSchedulerOptions,
+): Promise<ScreeningDecision[]> {
+  const batches = batchArticlesForScreening(articles);
+  const results = new Map(options.completedBatches ?? []);
+  const completedBatchIndexes = options.completedBatchIndexes ?? new Set(results.keys());
+  const pendingIndexes = batches.map((_, index) => index).filter((index) => !completedBatchIndexes.has(index));
+  const active = new Set<Promise<void>>();
+  let terminalError: unknown;
+  let lastLaunchAt: number | undefined;
+
+  const launch = (batchIndex: number) => {
+    const task = screenArticleBatch(topic, batches[batchIndex], client, model, options.signal)
+      .then(async (decisions) => {
+        await options.onBatchComplete?.(batchIndex, decisions);
+        results.set(batchIndex, decisions);
+      })
+      .catch((error: unknown) => {
+        terminalError ??= error;
+      })
+      .finally(() => active.delete(task));
+    active.add(task);
+  };
+
+  try {
+    for (const batchIndex of pendingIndexes) {
+      if (terminalError) break;
+      if (options.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+      if (active.size >= options.concurrency) await Promise.race(active);
+      if (terminalError) break;
+      if (lastLaunchAt !== undefined) {
+        const remaining = options.launchIntervalMs - (Date.now() - lastLaunchAt);
+        await abortableDelay(remaining, options.signal);
+      }
+      if (terminalError) break;
+      if (options.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+      lastLaunchAt = Date.now();
+      launch(batchIndex);
+    }
+  } catch (error) {
+    terminalError ??= error;
+  }
+
+  await Promise.all(active);
+  if (terminalError) throw terminalError;
+
+  const articleOrder = new Map(articles.map((article) => [article.id, article.sourceOrder]));
+  return [...results.values()].flat().sort((left, right) =>
+    (articleOrder.get(left.articleId) ?? Number.MAX_SAFE_INTEGER) - (articleOrder.get(right.articleId) ?? Number.MAX_SAFE_INTEGER));
+}
+
 export async function screenArticles(
   topic: string,
   articles: Article[],
@@ -77,38 +195,10 @@ export async function screenArticles(
   signal: AbortSignal,
   onBatch?: (decisions: ScreeningDecision[]) => Promise<void> | void,
 ): Promise<ScreeningDecision[]> {
-  const allDecisions: ScreeningDecision[] = [];
-  for (const batch of batchArticlesForScreening(articles)) {
-    const expectedIds = batch.map((article) => article.id);
-    const request = (prompt: string): CompletionRequest => ({ model, prompt, signal, json: true, temperature: 0 });
-    let payload: ScreeningDecisionPayload[] | undefined;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const raw = await client.complete(request(buildRelevancePrompt(topic, batch)));
-      try {
-        payload = validateScreeningBatch(raw, expectedIds);
-        break;
-      } catch (error) {
-        if (!(error instanceof ScreeningFormatError) || attempt === 1) {
-          if (error instanceof ScreeningFormatError) throw Object.assign(error, { code: 'screening-format' });
-          throw error;
-        }
-      }
-    }
-    if (!payload) throw Object.assign(new Error('Screening response was empty'), { code: 'screening-format' });
-    const decisions = payload.map((decision) => {
-      const article = batch.find((candidate) => candidate.id === decision.sourceId)!;
-      return {
-        id: `${article.id}:screening`,
-        runId: article.runId,
-        articleId: article.id,
-        score: decision.score,
-        include: decision.include,
-        reason: decision.reason,
-        promptVersion: RELEVANCE_PROMPT_VERSION,
-      } satisfies ScreeningDecision;
-    });
-    allDecisions.push(...decisions);
-    await onBatch?.(decisions);
-  }
-  return allDecisions;
+  return screenArticlesParallel(topic, articles, client, model, {
+    concurrency: 5,
+    launchIntervalMs: 1000,
+    signal,
+    onBatchComplete: (_batchIndex, decisions) => onBatch?.(decisions),
+  });
 }

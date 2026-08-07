@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { configureAndCompleteReview, mockReviewApis } from './helpers';
+import { configureAndCompleteOneClickReview, configureAndCompleteReview, mockReviewApis } from './helpers';
 
 test('confirms the query, screens articles, and downloads Word', async ({ page }, testInfo) => {
   await mockReviewApis(page);
@@ -16,4 +16,11 @@ test('confirms the query, screens articles, and downloads Word', async ({ page }
   expect(workspace!.x).toBeGreaterThanOrEqual(0);
   expect(workspace!.x + workspace!.width).toBeLessThanOrEqual(width.client);
   expect(workspace!.y).toBeGreaterThanOrEqual(topbar!.y + topbar!.height);
+});
+
+test('runs one-click mode without showing query confirmation and downloads Word', async ({ page }) => {
+  await mockReviewApis(page);
+  const download = await configureAndCompleteOneClickReview(page);
+  expect(download.suggestedFilename()).toMatch(/癌症研究综述.*\.docx$/);
+  await expect(page.getByRole('heading', { name: '确认 PubMed 检索式' })).toHaveCount(0);
 });

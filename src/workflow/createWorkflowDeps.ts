@@ -8,7 +8,7 @@ import { buildEvidenceBundle, formatAmaReference } from './references';
 import { validateAndReorderCitations } from './citations';
 import { selectWithinContext, estimateTokens, resolveContextWindow } from './contextBudget';
 import { resolveScreeningModel } from '../api/deepseekClient';
-import { batchArticlesForScreening, screenArticles as screenArticlesCore } from './relevance';
+import { batchArticlesForScreening, screenArticlesParallel } from './relevance';
 import type { ScreeningProgress, WorkflowDeps, WorkflowInput } from './runWorkflow';
 
 export interface WorkflowRepositories {
@@ -16,7 +16,7 @@ export interface WorkflowRepositories {
   saveScreening?(decisions: ScreeningDecision[]): Promise<unknown>;
   saveArtifact?(artifact: GenerationArtifact): Promise<unknown>;
   saveCheckpoint?(checkpoint: Checkpoint): Promise<unknown>;
-  getRunBundle?(runId: string): Promise<{ checkpoints: Checkpoint[] } | undefined>;
+  getRunBundle?(runId: string): Promise<{ checkpoints: Checkpoint[]; screening?: ScreeningDecision[] } | undefined>;
 }
 
 export interface WorkflowServices {
@@ -50,16 +50,65 @@ export function createWorkflowDeps(services: WorkflowServices): WorkflowDeps {
     const models = (await services.deepSeek.listModels(input.signal)) ?? [];
     models.forEach((model) => modelsById.set(model.id, model));
     const screeningModel = resolveScreeningModel(models, input.modelId);
-    const total = batchArticlesForScreening(articles).length;
+    const batches = batchArticlesForScreening(articles);
+    const total = batches.length;
     let completed = 0;
     let processed = 0;
     let included = 0;
-    const decisions = await screenArticlesCore(input.topic, articles, services.deepSeek, screeningModel, input.signal, async (batch) => {
-      await repositories.saveScreening?.(batch);
+    const completedBatches = new Map<number, ScreeningDecision[]>();
+    const stored = input.runId ? await repositories.getRunBundle?.(input.runId) : undefined;
+    for (const checkpoint of stored?.checkpoints ?? []) {
+      const match = /^(.+):screening-batch:(\d+)$/.exec(checkpoint.id);
+      if (!match || checkpoint.runId !== input.runId || checkpoint.stage !== 'screening') continue;
+      const payload = checkpoint.payload;
+      if (!payload || typeof payload !== 'object') continue;
+      const candidate = payload as { runId?: unknown; batchIndex?: unknown; totalBatches?: unknown; articleIds?: unknown; decisions?: unknown };
+      const batchIndex = candidate.batchIndex;
+      const articleIds = candidate.articleIds;
+      const decisions = candidate.decisions;
+      if (candidate.runId !== input.runId || typeof batchIndex !== 'number' || !Number.isInteger(batchIndex) || batchIndex < 0 || batchIndex >= total || candidate.totalBatches !== total || !Array.isArray(articleIds)) continue;
+      const expectedIds = batches[batchIndex]?.map((article) => article.id) ?? [];
+      if (expectedIds.length !== articleIds.length || expectedIds.some((id, index) => id !== articleIds[index])) continue;
+      const storedDecisions = Array.isArray(decisions) ? decisions as ScreeningDecision[] : (stored?.screening ?? []).filter((decision) => expectedIds.includes(decision.articleId));
+      if (storedDecisions.length !== expectedIds.length || storedDecisions.some((decision) => {
+        return !decision || typeof decision !== 'object' || decision.runId !== input.runId || decision.id !== `${decision.articleId}:screening` || !expectedIds.includes(decision.articleId) || ![0, 1, 2, 3].includes(decision.score) || typeof decision.include !== 'boolean' || typeof decision.reason !== 'string' || decision.promptVersion !== 'relevance-v1';
+      })) continue;
+      const decisionMap = new Map(storedDecisions.map((decision) => [decision.articleId, decision]));
+      if (expectedIds.some((id) => !decisionMap.has(id))) continue;
+      completedBatches.set(batchIndex, expectedIds.map((id) => decisionMap.get(id)!));
+    }
+    for (const batch of completedBatches.values()) {
       completed += 1;
       processed += batch.length;
       included += batch.filter((decision) => decision.include).length;
-      onProgress?.({ completed, total, processed, included });
+    }
+    if (completed > 0) onProgress?.({ completed, total, processed, included });
+    const decisions = await screenArticlesParallel(input.topic, articles, services.deepSeek, screeningModel, {
+      concurrency: 5,
+      launchIntervalMs: 1000,
+      signal: input.signal,
+      completedBatches,
+      onBatchComplete: async (batchIndex, batch) => {
+        await repositories.saveScreening?.(batch);
+        await repositories.saveCheckpoint?.({
+          id: `${input.runId}:screening-batch:${batchIndex}`,
+          runId: input.runId,
+          stage: 'screening',
+          completedAt: Date.now(),
+          payload: {
+            runId: input.runId,
+            batchIndex,
+            totalBatches: total,
+            articleIds: batches[batchIndex].map((article) => article.id),
+            decisions: batch,
+            completedAt: Date.now(),
+          },
+        });
+        completed += 1;
+        processed += batch.length;
+        included += batch.filter((decision) => decision.include).length;
+        onProgress?.({ completed, total, processed, included });
+      },
     });
     const byArticleId = new Map(articles.map((article) => [article.id, article]));
     return decisions.flatMap((decision) => {
@@ -113,7 +162,7 @@ export function createWorkflowDeps(services: WorkflowServices): WorkflowDeps {
   const loadCheckpoint = async <T,>(stage: Parameters<WorkflowDeps['loadCheckpoint']>[0], runId = ''): Promise<T | undefined> => {
     if (!runId || !repositories.getRunBundle) return undefined;
     const bundle = await repositories.getRunBundle(runId);
-    return bundle?.checkpoints.find((checkpoint) => checkpoint.stage === stage)?.payload as T | undefined;
+    return bundle?.checkpoints.find((checkpoint) => checkpoint.id === `${runId}:${stage}`)?.payload as T | undefined;
   };
 
   const checkpoint = async (stage: Parameters<WorkflowDeps['checkpoint']>[0], payload: unknown, runId = ''): Promise<void> => {

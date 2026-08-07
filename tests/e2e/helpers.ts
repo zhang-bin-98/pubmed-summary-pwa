@@ -54,3 +54,23 @@ export async function configureAndCompleteReview(page: Page) {
   await page.getByRole('button', { name: '再次下载' }).waitFor();
   return download;
 }
+
+export async function configureAndCompleteOneClickReview(page: Page) {
+  await page.goto('/');
+  await page.getByTitle('设置').click();
+  await page.getByLabel('DeepSeek API Key', { exact: true }).fill('test-deepseek');
+  await page.getByLabel('My NCBI API Key', { exact: true }).fill('test-ncbi');
+  await page.getByRole('button', { name: '测试 DeepSeek 连接' }).click();
+  await page.getByRole('button', { name: '测试 NCBI 连接' }).click();
+  await page.getByRole('button', { name: '保存设置' }).click();
+  await page.waitForTimeout(50);
+  await page.getByTitle('工作台').click();
+  await page.getByLabel('研究主题').fill('癌症研究');
+  await page.getByText('一键生成', { exact: true }).click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: '一键生成综述' }).click();
+  await page.getByRole('textbox', { name: 'PubMed 检索式', exact: true }).waitFor({ state: 'detached' });
+  const download = await downloadPromise;
+  await page.getByRole('button', { name: '再次下载' }).waitFor();
+  return download;
+}

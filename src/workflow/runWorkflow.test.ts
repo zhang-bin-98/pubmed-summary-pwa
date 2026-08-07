@@ -29,6 +29,9 @@ describe('runWorkflow', () => {
       message: expect.stringContaining('第 2/15 批'),
       stats: expect.objectContaining({ fetched: 1, withAbstract: 1, relevant: 20 }),
     }));
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringContaining('并行最多 5 路，启动间隔 1 秒'),
+    }));
   });
 
   it('preserves the n8n stage order around the new screening stage', async () => {

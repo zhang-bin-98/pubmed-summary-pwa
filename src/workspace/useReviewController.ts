@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DeepSeekClient } from '../api/deepseekClient';
 import { NcbiClient } from '../api/ncbiClient';
-import type { AppSettings, ReviewRun, RunStats } from '../domain/models';
+import type { AppSettings, ReviewMode, ReviewRun, RunStats } from '../domain/models';
 import { downloadBlob } from '../export/dataExport';
 import { getRunBundle, saveArtifact, saveArticles, saveCheckpoint, saveRun, saveScreening } from '../storage/repositories';
 import { countConfirmedQuery, createWorkflowDeps, generateConfirmedQuery } from '../workflow/createWorkflowDeps';
@@ -17,7 +17,7 @@ export type ReviewControllerState =
   | { kind: 'cancelled'; runId: string };
 
 export interface GenerateQueryInput { topic: string; modelId: string }
-export interface StartRunInput { topic: string; query: string; modelId: string; maxResults: number; runId?: string }
+export interface StartRunInput { topic: string; query: string; modelId: string; maxResults: number; mode?: ReviewMode; queryCount?: number; runId?: string }
 
 function hasConnectionDecision(value: string): boolean {
   return value === 'passed' || value === 'skipped';
@@ -66,14 +66,28 @@ export function useReviewController(settings: AppSettings) {
     }
   }, [requireConnections, settings.deepSeekApiKey, settings.ncbiApiKey]);
 
-  const startRun = useCallback(async ({ topic, query, modelId, maxResults, runId: resumedRunId }: StartRunInput) => {
+  const startRun = useCallback(async ({ topic, query, modelId, maxResults, mode, queryCount, runId: resumedRunId }: StartRunInput) => {
     if (!requireConnections()) return;
     activeController.current?.abort();
     const controller = new AbortController();
     activeController.current = controller;
     const runId = resumedRunId ?? createRunId();
     const now = Date.now();
-    let run: ReviewRun = { id: runId, topic, query, modelId, maxResults, stage: 'fetching', status: 'active', createdAt: now, updatedAt: now, stats: {} };
+    const existingBundle = resumedRunId ? await getRunBundle(resumedRunId) : undefined;
+    const isLegacyResume = Boolean(existingBundle?.run && existingBundle.run.mode === undefined && existingBundle.run.screeningConcurrency === undefined);
+    let run: ReviewRun = {
+      id: runId,
+      topic,
+      query,
+      modelId,
+      maxResults,
+      ...(isLegacyResume ? {} : { mode: mode ?? 'confirm-query', queryCount, screeningConcurrency: 5 }),
+      stage: 'fetching',
+      status: 'active',
+      createdAt: existingBundle?.run.createdAt ?? now,
+      updatedAt: now,
+      stats: {},
+    };
     await saveRun(run);
     const stats: RunStats = {};
     const deepSeek = new DeepSeekClient(settings.deepSeekApiKey);
@@ -119,7 +133,7 @@ export function useReviewController(settings: AppSettings) {
   const retry = useCallback(async (runId: string) => {
     const bundle = await getRunBundle(runId);
     if (!bundle?.run.query) return;
-    await startRun({ runId, topic: bundle.run.topic, query: bundle.run.query, modelId: bundle.run.modelId, maxResults: bundle.run.maxResults });
+    await startRun({ runId, topic: bundle.run.topic, query: bundle.run.query, modelId: bundle.run.modelId, maxResults: bundle.run.maxResults, mode: bundle.run.mode, queryCount: bundle.run.queryCount });
   }, [startRun]);
 
   return { state, generateQuery, startRun, cancel, download, retry, reset: () => setState({ kind: 'idle' }) };

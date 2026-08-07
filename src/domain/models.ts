@@ -13,6 +13,8 @@ export type RunStage =
 
 export type RunStatus = 'active' | 'completed' | 'cancelled' | 'failed';
 
+export type ReviewMode = 'confirm-query' | 'one-click';
+
 export interface AppSettings {
   id?: 1;
   deepSeekApiKey: string;
@@ -68,6 +70,9 @@ export interface ReviewRun {
   createdAt: number;
   updatedAt: number;
   stats: RunStats;
+  mode?: ReviewMode;
+  queryCount?: number;
+  screeningConcurrency?: 5;
   errorCode?: string;
   errorMessage?: string;
 }
