@@ -3,7 +3,6 @@ import { DeepSeekClient } from '../api/deepseekClient';
 import { NcbiClient } from '../api/ncbiClient';
 import type { AppSettings, ReviewRun, RunStats } from '../domain/models';
 import { downloadBlob } from '../export/dataExport';
-import { buildDocxBlob, sanitizeDocxFileName } from '../export/docxExport';
 import { getRunBundle, saveArtifact, saveArticles, saveCheckpoint, saveRun, saveScreening } from '../storage/repositories';
 import { countConfirmedQuery, createWorkflowDeps, generateConfirmedQuery } from '../workflow/createWorkflowDeps';
 import { runWorkflow, type WorkflowProgress } from '../workflow/runWorkflow';
@@ -110,6 +109,7 @@ export function useReviewController(settings: AppSettings) {
     const bundle = await getRunBundle(runId);
     const artifact = bundle?.artifact;
     if (!bundle || !artifact?.validatedMarkdown || !artifact.references) throw new Error('history-incomplete');
+    const { buildDocxBlob, sanitizeDocxFileName } = await import('../export/docxExport');
     const blob = await buildDocxBlob({ title: artifact.title || bundle.run.topic, markdown: artifact.validatedMarkdown, references: artifact.references });
     downloadBlob(blob, sanitizeDocxFileName(bundle.run.topic, new Date(bundle.run.updatedAt).toISOString().slice(0, 10)));
   }, []);

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReviewRun } from '../domain/models';
 import { buildArticlesCsv, buildRunJson, downloadBlob } from '../export/dataExport';
-import { buildDocxBlob, sanitizeDocxFileName } from '../export/docxExport';
 import { clearHistoryData, deleteRun as deleteStoredRun, getRunBundle, listRuns } from '../storage/repositories';
 
 export function useHistory(onResume?: (runId: string) => Promise<void> | void) {
@@ -29,6 +28,7 @@ export function useHistory(onResume?: (runId: string) => Promise<void> | void) {
     try {
       const bundle = await getRunBundle(runId);
       if (!bundle?.artifact?.validatedMarkdown || !bundle.artifact.references) throw new Error('history-incomplete');
+      const { buildDocxBlob, sanitizeDocxFileName } = await import('../export/docxExport');
       const blob = await buildDocxBlob({ title: bundle.artifact.title || bundle.run.topic, markdown: bundle.artifact.validatedMarkdown, references: bundle.artifact.references });
       downloadBlob(blob, sanitizeDocxFileName(bundle.artifact.title || bundle.run.topic, new Date(bundle.run.updatedAt).toISOString().slice(0, 10)));
       setError(undefined);

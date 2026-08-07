@@ -2,7 +2,6 @@ import type { DeepSeekClient, DeepSeekModel } from '../api/deepseekClient';
 import type { NcbiClient } from '../api/ncbiClient';
 import type { Article, Checkpoint, GenerationArtifact, ScreeningDecision, ScreenedArticle, ValidatedReview } from '../domain/models';
 import { downloadBlob } from '../export/dataExport';
-import { buildDocxBlob, sanitizeDocxFileName } from '../export/docxExport';
 import { renderOutlinePrompt, renderSearchPrompt, renderWritingPrompt } from '../prompts/loadPrompts';
 import { parsePubmedXml } from '../pubmed/parsePubmedXml';
 import { buildEvidenceBundle, formatAmaReference } from './references';
@@ -89,6 +88,7 @@ export function createWorkflowDeps(services: WorkflowServices): WorkflowDeps {
   };
 
   const exportDocx = async (review: ValidatedReview, input: WorkflowInput): Promise<void> => {
+    const { buildDocxBlob, sanitizeDocxFileName } = await import('../export/docxExport');
     const blob = await buildDocxBlob({ title: review.title || input.topic, markdown: review.markdown, references: review.references });
     downloadBlob(blob, sanitizeDocxFileName(review.title || input.topic, new Date().toISOString().slice(0, 10)));
     await repositories.saveArtifact?.({

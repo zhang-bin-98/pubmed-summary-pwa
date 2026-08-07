@@ -11,6 +11,7 @@ type AppView = 'workspace' | 'history' | 'settings';
 
 export function App() {
   const [view, setView] = useState<AppView>('workspace');
+  const [online, setOnline] = useState(() => navigator.onLine);
   const settingsState = useSettings();
   const reviewController = useReviewController(settingsState.settings);
   const historyState = useHistory(async (runId) => {
@@ -19,6 +20,12 @@ export function App() {
   });
 
   useEffect(() => { if (view === 'history') void historyState.refresh(); }, [historyState.refresh, view]);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
+  }, []);
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -31,8 +38,9 @@ export function App() {
           </nav>
         </div>
       </header>
+      {!online && <div className="offline-banner" role="status">当前离线：可查看历史并重新导出，不能发起新的 PubMed 或 DeepSeek 请求。</div>}
       <main>
-        {view === 'workspace' && <Workspace settings={settingsState.settings} controller={reviewController} onOpenSettings={() => setView('settings')} />}
+        {view === 'workspace' && <Workspace settings={settingsState.settings} controller={reviewController} onOpenSettings={() => setView('settings')} online={online} />}
         {view === 'history' && <HistoryView runs={historyState.runs} error={historyState.error} storage={historyState.storage} onResume={historyState.resume} onDownloadDocx={historyState.downloadDocx} onExportJson={historyState.exportJson} onExportCsv={historyState.exportCsv} onDelete={historyState.deleteRun} onClear={historyState.clearHistory} />}
         {view === 'settings' && !settingsState.loading && (
           <SettingsView
