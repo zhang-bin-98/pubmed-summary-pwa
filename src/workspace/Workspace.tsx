@@ -40,7 +40,7 @@ export function Workspace({ settings, controller, onOpenSettings, online = true 
   const [mode, setMode] = useState<ReviewMode>('confirm-query');
   const [query, setQuery] = useState('');
   const [count, setCount] = useState<number | null>(null);
-  const downloadedRunId = useRef<string | undefined>(undefined);
+  const previousStateKind = useRef<ReviewControllerState['kind']>('idle');
   const confirming = count !== null && controller.state.kind !== 'running' && controller.state.kind !== 'completed';
 
   useEffect(() => {
@@ -51,11 +51,10 @@ export function Workspace({ settings, controller, onOpenSettings, online = true 
   }, [controller.state]);
 
   useEffect(() => {
-    if (controller.state.kind === 'completed' && downloadedRunId.current !== controller.state.runId) {
-      downloadedRunId.current = controller.state.runId;
-      void controller.download?.(controller.state.runId);
-    }
-  }, [controller, controller.state]);
+    const wasRunning = previousStateKind.current === 'running';
+    previousStateKind.current = controller.state.kind;
+    if (wasRunning && controller.state.kind === 'completed') void controller.download?.(controller.state.runId);
+  }, [controller.state, controller.download]);
 
   const runningState = controller.state.kind === 'running' ? controller.state : undefined;
   const currentStageIndex = useMemo(() => runningState
@@ -63,7 +62,7 @@ export function Workspace({ settings, controller, onOpenSettings, online = true 
     : 0, [runningState]);
 
   if (controller.state.kind === 'running') {
-    return <section className="workspace" aria-labelledby="workspace-heading"><h2 id="workspace-heading">正在生成综述</h2><div className="progress" aria-label="任务进度"><div className="progress__value" style={{ width: `${Math.round((controller.state.progress.completed / controller.state.progress.total) * 100)}%` }} /></div><p className="progress-message" role="status" aria-live="polite">{controller.state.progress.message}</p><div className="stage-list">{STAGES.map(([stage, label], index) => <div className="stage-row" key={stage}>{index < currentStageIndex ? <Check aria-hidden="true" /> : index === currentStageIndex ? <LoaderCircle aria-hidden="true" /> : <Circle aria-hidden="true" />}<span>{label}</span><small>{index < currentStageIndex ? '已完成' : index === currentStageIndex ? '进行中' : '等待中'}</small></div>)}</div><Stats stats={controller.state.stats} /><button type="button" className="button button--secondary" onClick={controller.cancel}><OctagonX />取消任务</button></section>;
+    return <section className="workspace" aria-labelledby="workspace-heading"><h2 id="workspace-heading">正在生成综述</h2><div className="progress" aria-label="任务进度"><div className="progress__value" style={{ width: `${Math.round((controller.state.progress.completed / controller.state.progress.total) * 100)}%` }} /></div><p className="progress-message" role="status" aria-live="polite">{controller.state.progress.message}</p><div className="stage-list">{STAGES.map(([stage, label], index) => <div className="stage-row" key={stage}>{index < currentStageIndex ? <Check aria-hidden="true" /> : index === currentStageIndex ? <LoaderCircle className="stage-row__spinner" aria-hidden="true" /> : <Circle aria-hidden="true" />}<span>{label}</span><small>{index < currentStageIndex ? '已完成' : index === currentStageIndex ? '进行中' : '等待中'}</small></div>)}</div><Stats stats={controller.state.stats} /><button type="button" className="button button--secondary" onClick={controller.cancel}><OctagonX />取消任务</button></section>;
   }
 
   if (controller.state.kind === 'completed') {

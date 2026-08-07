@@ -36,11 +36,34 @@ it('starts the workflow automatically in one-click mode after counting the query
   expect(screen.queryByLabelText('PubMed 检索式')).not.toBeInTheDocument();
 });
 
-it('shows completion actions without rendering the generated body', () => {
-  render(<Workspace settings={settings} controller={{ generateQuery: vi.fn(), startRun: vi.fn(), cancel: vi.fn(), state: { kind: 'completed', runId: 'r', stats: { fetched: 286, withAbstract: 231, relevant: 74, contextSelected: 60, selected: 42 } } }} />);
+it('shows completion actions without auto-downloading when the workspace mounts', () => {
+  const download = vi.fn();
+  render(<Workspace settings={settings} controller={{ generateQuery: vi.fn(), startRun: vi.fn(), cancel: vi.fn(), download, state: { kind: 'completed', runId: 'r', stats: { fetched: 286, withAbstract: 231, relevant: 74, contextSelected: 60, selected: 42 } } }} />);
   expect(screen.getByRole('button', { name: '再次下载' })).toBeInTheDocument();
   expect(screen.queryByText(/## 1\./)).not.toBeInTheDocument();
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  expect(download).not.toHaveBeenCalled();
+});
+
+it('auto-downloads once when a running task transitions to completed', () => {
+  const download = vi.fn();
+  const controller = {
+    generateQuery: vi.fn(),
+    startRun: vi.fn(),
+    cancel: vi.fn(),
+    download,
+    state: {
+      kind: 'running' as const,
+      runId: 'r',
+      progress: { stage: 'writing' as const, completed: 4, total: 7, message: '正在撰写综述正文' },
+      stats: {},
+    },
+  };
+  const { rerender } = render(<Workspace settings={settings} controller={controller} />);
+  rerender(<Workspace settings={settings} controller={{ ...controller, state: { kind: 'completed', runId: 'r', stats: {} } }} />);
+  expect(download).toHaveBeenCalledTimes(1);
+  rerender(<Workspace settings={settings} controller={{ ...controller, state: { kind: 'completed', runId: 'r', stats: {} } }} />);
+  expect(download).toHaveBeenCalledTimes(1);
 });
 
 it('distinguishes context selection from references used in the final body', () => {
@@ -59,4 +82,14 @@ it('shows the live operation message while a run is in progress', () => {
     stats: { fetched: 300, withAbstract: 248, relevant: 20 },
   } }} />);
   expect(screen.getByRole('status')).toHaveTextContent('正在筛选相关文献（第 2/15 批）');
+});
+
+it('animates the active stage icon while a run is in progress', () => {
+  render(<Workspace settings={settings} controller={{ generateQuery: vi.fn(), startRun: vi.fn(), cancel: vi.fn(), state: {
+    kind: 'running',
+    runId: 'r',
+    progress: { stage: 'outlining', completed: 2, total: 7, message: '正在选择上下文并生成大纲' },
+    stats: {},
+  } }} />);
+  expect(screen.getByLabelText('任务进度').parentElement?.querySelector('.stage-row__spinner')).not.toBeNull();
 });
