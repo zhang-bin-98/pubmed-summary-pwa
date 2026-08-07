@@ -111,4 +111,5 @@ export interface Checkpoint {
   runId: string;
   stage: RunStage;
   completedAt: number;
+  payload?: unknown;
 }

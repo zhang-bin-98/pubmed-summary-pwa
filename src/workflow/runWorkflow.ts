@@ -24,8 +24,8 @@ export interface WorkflowDeps {
   generateReview(outline: string, articles: Article[], input: WorkflowInput, options?: { temperature?: number }): Promise<string>;
   validateCitations(markdown: string, articles: Article[]): ValidatedReview;
   exportDocx(review: ValidatedReview, input: WorkflowInput): Promise<void>;
-  loadCheckpoint<T>(stage: RunStage): Promise<T | undefined>;
-  checkpoint(stage: RunStage, payload: unknown): Promise<void>;
+  loadCheckpoint<T>(stage: RunStage, runId?: string): Promise<T | undefined>;
+  checkpoint(stage: RunStage, payload: unknown, runId?: string): Promise<void>;
   onProgress?(progress: WorkflowProgress): void;
 }
 
@@ -85,7 +85,7 @@ export async function runWorkflow(input: WorkflowInput, deps: WorkflowDeps): Pro
   try {
     assertNotAborted(input.signal);
     deps.onProgress?.({ stage: 'fetching', completed: 0, total: 7, message: '正在获取 PubMed 摘要' });
-    const screeningCheckpoint = await deps.loadCheckpoint<ScreenedArticle[]>('screening');
+    const screeningCheckpoint = await deps.loadCheckpoint<ScreenedArticle[]>('screening', input.runId);
     let articles: Article[];
     let screenedArticles: ScreenedArticle[];
 
@@ -93,15 +93,15 @@ export async function runWorkflow(input: WorkflowInput, deps: WorkflowDeps): Pro
       screenedArticles = screeningCheckpoint;
       articles = screenedArticles.map(({ article }) => article);
     } else {
-      const fetchedCheckpoint = await deps.loadCheckpoint<Article[]>('fetching');
+      const fetchedCheckpoint = await deps.loadCheckpoint<Article[]>('fetching', input.runId);
       articles = fetchedCheckpoint ?? await deps.fetchArticles(input);
-      if (!fetchedCheckpoint) await deps.checkpoint('fetching', articles);
+      if (!fetchedCheckpoint) await deps.checkpoint('fetching', articles, input.runId);
       assertNotAborted(input.signal);
       const withAbstract = articles.filter((article) => article.abstract.trim().length > 0);
       if (withAbstract.length === 0) throw new WorkflowError('no-abstracts', '没有可用于综述的摘要');
       deps.onProgress?.({ stage: 'screening', completed: 1, total: 7, message: '正在筛选相关文献' });
       screenedArticles = await deps.screenArticles(withAbstract, input);
-      await deps.checkpoint('screening', screenedArticles);
+      await deps.checkpoint('screening', screenedArticles, input.runId);
     }
 
     assertNotAborted(input.signal);
@@ -109,15 +109,15 @@ export async function runWorkflow(input: WorkflowInput, deps: WorkflowDeps): Pro
     const selectedArticles = deps.selectArticles(screenedArticles, input);
     if (selectedArticles.length === 0) throw new WorkflowError('no-relevant-articles', '没有筛选出相关文献');
     assertNotAborted(input.signal);
-    const outlineCheckpoint = await deps.loadCheckpoint<string>('outlining');
+    const outlineCheckpoint = await deps.loadCheckpoint<string>('outlining', input.runId);
     const outline = outlineCheckpoint ?? await deps.generateOutline(selectedArticles, input);
-    if (!outlineCheckpoint) await deps.checkpoint('outlining', outline);
+    if (!outlineCheckpoint) await deps.checkpoint('outlining', outline, input.runId);
     assertNotAborted(input.signal);
-    const writingCheckpoint = await deps.loadCheckpoint<string>('writing');
+    const writingCheckpoint = await deps.loadCheckpoint<string>('writing', input.runId);
     let markdown = writingCheckpoint ?? await deps.generateReview(outline, selectedArticles, input);
-    if (!writingCheckpoint) await deps.checkpoint('writing', markdown);
+    if (!writingCheckpoint) await deps.checkpoint('writing', markdown, input.runId);
     deps.onProgress?.({ stage: 'validating-citations', completed: 5, total: 7, message: '正在校验引用' });
-    const validationCheckpoint = await deps.loadCheckpoint<ValidatedReview>('validating-citations');
+    const validationCheckpoint = await deps.loadCheckpoint<ValidatedReview>('validating-citations', input.runId);
     let review: ValidatedReview;
     if (validationCheckpoint) {
       review = validationCheckpoint;
@@ -133,12 +133,12 @@ export async function runWorkflow(input: WorkflowInput, deps: WorkflowDeps): Pro
           throw new WorkflowError('citation-validation', secondError instanceof Error ? secondError.message : '引用校验失败', { cause: secondError });
         }
       }
-      await deps.checkpoint('validating-citations', review);
+      await deps.checkpoint('validating-citations', review, input.runId);
     }
     assertNotAborted(input.signal);
     deps.onProgress?.({ stage: 'exporting', completed: 6, total: 7, message: '正在导出 Word 文档' });
     await deps.exportDocx(review, input);
-    await deps.checkpoint('exporting', review);
+    await deps.checkpoint('exporting', review, input.runId);
     deps.onProgress?.({ stage: 'completed', completed: 7, total: 7, message: '综述已完成' });
     return { review, articles: selectedArticles, screenedArticles };
   } catch (error) {
