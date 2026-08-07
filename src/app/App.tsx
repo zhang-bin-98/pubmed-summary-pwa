@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { History, LibraryBig, Settings } from 'lucide-react';
 import { SettingsView } from '../settings/SettingsView';
 import { useSettings } from '../settings/useSettings';
+import { useReviewController } from '../workspace/useReviewController';
+import { Workspace } from '../workspace/Workspace';
 
 type AppView = 'workspace' | 'history' | 'settings';
 
 export function App() {
   const [view, setView] = useState<AppView>('workspace');
   const settingsState = useSettings();
+  const reviewController = useReviewController(settingsState.settings);
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -21,7 +24,7 @@ export function App() {
         </div>
       </header>
       <main>
-        {view === 'workspace' && <section className="workspace"><h2>工作台</h2></section>}
+        {view === 'workspace' && <Workspace settings={settingsState.settings} controller={reviewController} onOpenSettings={() => setView('settings')} />}
         {view === 'history' && <section className="workspace"><h2>历史记录</h2></section>}
         {view === 'settings' && !settingsState.loading && (
           <SettingsView
