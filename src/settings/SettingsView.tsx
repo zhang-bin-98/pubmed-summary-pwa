@@ -58,28 +58,28 @@ export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSa
       <div className="alert" role="alert">API Key 将保存在当前浏览器的 IndexedDB 中。共用设备或浏览器扩展可能读取本地数据，请仅在可信设备上使用。</div>
 
       <div className="settings-form">
-        <label className="field">
-          <span>DeepSeek API Key</span>
+        <div className="field">
+          <label htmlFor="deepseek-api-key">DeepSeek API Key</label>
           <span className="input-with-actions">
-            <input className="input" type={showDeepSeek ? 'text' : 'password'} autoComplete="off" value={draft.deepSeekApiKey} onChange={(event) => setKey('deepSeek', event.target.value)} />
+            <input id="deepseek-api-key" className="input" type={showDeepSeek ? 'text' : 'password'} autoComplete="off" value={draft.deepSeekApiKey} onChange={(event) => setKey('deepSeek', event.target.value)} />
             <button type="button" className="icon-button" aria-label={showDeepSeek ? '隐藏 DeepSeek API Key' : '显示 DeepSeek API Key'} title={showDeepSeek ? '隐藏 Key' : '显示 Key'} onClick={() => setShowDeepSeek((value) => !value)}>{showDeepSeek ? <EyeOff /> : <Eye />}</button>
             <button type="button" className="icon-button" aria-label="清除 DeepSeek API Key" title="清除 Key" onClick={() => { setKey('deepSeek', ''); void onClearDeepSeekKey?.(); }}><X /></button>
           </span>
-        </label>
+        </div>
         <div className="setting-actions">
           <button type="button" className="button button--secondary" disabled={!draft.deepSeekApiKey || testing !== null} onClick={() => void testConnection('deepSeek')}>{testing === 'deepSeek' ? '测试中...' : '测试 DeepSeek 连接'}</button>
           <button type="button" className="button button--secondary" aria-label="跳过 DeepSeek 测试" onClick={() => setDraft((current) => ({ ...current, connectionChecks: { ...current.connectionChecks, deepSeek: 'skipped' } }))}>跳过测试</button>
           {draft.connectionChecks.deepSeek !== 'untested' && <span className="connection-status"><CheckCircle2 />{draft.connectionChecks.deepSeek === 'passed' ? '已通过' : '已跳过'}</span>}
         </div>
 
-        <label className="field">
-          <span>My NCBI API Key</span>
+        <div className="field">
+          <label htmlFor="ncbi-api-key">My NCBI API Key</label>
           <span className="input-with-actions">
-            <input className="input" type={showNcbi ? 'text' : 'password'} autoComplete="off" value={draft.ncbiApiKey} onChange={(event) => setKey('ncbi', event.target.value)} />
+            <input id="ncbi-api-key" className="input" type={showNcbi ? 'text' : 'password'} autoComplete="off" value={draft.ncbiApiKey} onChange={(event) => setKey('ncbi', event.target.value)} />
             <button type="button" className="icon-button" aria-label={showNcbi ? '隐藏 My NCBI API Key' : '显示 My NCBI API Key'} title={showNcbi ? '隐藏 Key' : '显示 Key'} onClick={() => setShowNcbi((value) => !value)}>{showNcbi ? <EyeOff /> : <Eye />}</button>
             <button type="button" className="icon-button" aria-label="清除 My NCBI API Key" title="清除 Key" onClick={() => { setKey('ncbi', ''); void onClearNcbiKey?.(); }}><X /></button>
           </span>
-        </label>
+        </div>
         <div className="setting-actions">
           <button type="button" className="button button--secondary" disabled={!draft.ncbiApiKey || testing !== null} onClick={() => void testConnection('ncbi')}>{testing === 'ncbi' ? '测试中...' : '测试 NCBI 连接'}</button>
           <button type="button" className="button button--secondary" aria-label="跳过 NCBI 测试" onClick={() => setDraft((current) => ({ ...current, connectionChecks: { ...current.connectionChecks, ncbi: 'skipped' } }))}>跳过测试</button>

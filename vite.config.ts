@@ -41,5 +41,6 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './vitest.setup.ts',
     restoreMocks: true,
+    exclude: ['**/node_modules/**', '**/dist/**', 'tests/e2e/**'],
   },
 });
