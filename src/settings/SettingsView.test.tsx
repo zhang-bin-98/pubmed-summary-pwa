@@ -17,3 +17,8 @@ it('uses password fields, defaults to 300, and persists only after save', async 
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ deepSeekApiKey: 'secret', maxResults: 300 }));
   expect(screen.queryByText('secret')).not.toBeInTheDocument();
 });
+
+it('shows the required API key prompt when opened for initial setup', () => {
+  render(<SettingsView initial={{ deepSeekApiKey: '', ncbiApiKey: '', modelId: 'deepseek-v4-flash', maxResults: 300, connectionChecks: { deepSeek: 'untested', ncbi: 'untested' } }} models={[]} onTestDeepSeek={vi.fn()} onTestNcbi={vi.fn()} onSave={vi.fn()} onClearAll={vi.fn()} showApiKeyPrompt />);
+  expect(screen.getByText('请先设置 DeepSeek API Key 和 My NCBI API Key，保存后才能开始生成综述。')).toBeInTheDocument();
+});

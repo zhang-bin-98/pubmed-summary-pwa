@@ -37,6 +37,7 @@ svg { width: 18px; height: 18px; flex: none; }
 
 .icon-button { inline-size: 40px; block-size: 40px; padding: 0; display: inline-grid; place-items: center; flex: none; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
 .icon-button:hover { color: var(--accent-strong); background: var(--surface-subtle); }
+.topbar__actions a.icon-button { text-decoration: none; }
 .icon-button[aria-pressed="true"] { color: var(--accent); background: #e4f0ec; border-color: #bdd4cc; }
 .form-grid { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 12px; }
 .field { display: grid; gap: 6px; min-width: 0; }

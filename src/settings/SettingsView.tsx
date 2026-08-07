@@ -12,9 +12,10 @@ export interface SettingsViewProps {
   onClearAll(): Promise<void> | void;
   onClearDeepSeekKey?(): Promise<void> | void;
   onClearNcbiKey?(): Promise<void> | void;
+  showApiKeyPrompt?: boolean;
 }
 
-export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSave, onClearAll, onClearDeepSeekKey, onClearNcbiKey }: SettingsViewProps) {
+export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSave, onClearAll, onClearDeepSeekKey, onClearNcbiKey, showApiKeyPrompt = false }: SettingsViewProps) {
   const [draft, setDraft] = useState(initial);
   const [showDeepSeek, setShowDeepSeek] = useState(false);
   const [showNcbi, setShowNcbi] = useState(false);
@@ -55,6 +56,7 @@ export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSa
         <KeyRound aria-hidden="true" />
         <div><h2 id="settings-heading">设置</h2><p>API 凭据与检索默认值</p></div>
       </div>
+      {showApiKeyPrompt && <div className="alert alert--setup" role="alert"><strong>需要先完成设置</strong><p>请先设置 DeepSeek API Key 和 My NCBI API Key，保存后才能开始生成综述。</p></div>}
       <div className="alert" role="alert">API Key 将保存在当前浏览器的 IndexedDB 中。共用设备或浏览器扩展可能读取本地数据，请仅在可信设备上使用。</div>
 
       <div className="settings-form">
