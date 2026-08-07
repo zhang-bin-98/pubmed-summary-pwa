@@ -6,6 +6,31 @@ const article: Article = { id: 'r:1', runId: 'r', pmid: '1', sourceOrder: 0, tit
 const decision: ScreeningDecision = { id: 'r:r:1', runId: 'r', articleId: 'r:1', score: 3, include: true, reason: '相关', promptVersion: 'relevance-v1' };
 
 describe('runWorkflow', () => {
+  it('publishes screening batch progress with live article statistics', async () => {
+    const progress = vi.fn();
+    const deps: WorkflowDeps = {
+      fetchArticles: vi.fn(async () => [article]),
+      screenArticles: vi.fn(async (_articles, _input, onBatchProgress) => {
+        onBatchProgress?.({ completed: 2, total: 15, processed: 40, included: 20 });
+        return [{ article, decision }];
+      }),
+      selectArticles: vi.fn((items: ScreenedArticle[]) => items.map((item) => item.article)),
+      generateOutline: vi.fn(async () => '大纲'),
+      generateReview: vi.fn(async () => '# 标题\n\n正文[1]。'),
+      validateCitations: vi.fn((markdown) => ({ title: '标题', markdown, references: ['Ref'] })),
+      exportDocx: vi.fn(async () => undefined),
+      loadCheckpoint: vi.fn(async () => undefined),
+      checkpoint: vi.fn(async () => undefined),
+      onProgress: progress,
+    };
+    await runWorkflow({ runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, signal: new AbortController().signal }, deps);
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({
+      stage: 'screening',
+      message: expect.stringContaining('第 2/15 批'),
+      stats: expect.objectContaining({ fetched: 1, withAbstract: 1, relevant: 20 }),
+    }));
+  });
+
   it('preserves the n8n stage order around the new screening stage', async () => {
     const calls: string[] = [];
     const deps: WorkflowDeps = {

@@ -1,4 +1,11 @@
-import type { Article, RunStage, ScreenedArticle, ValidatedReview } from '../domain/models';
+import type { Article, RunStage, RunStats, ScreenedArticle, ValidatedReview } from '../domain/models';
+
+export interface ScreeningProgress {
+  completed: number;
+  total: number;
+  processed: number;
+  included: number;
+}
 
 export interface WorkflowInput {
   runId: string;
@@ -14,11 +21,12 @@ export interface WorkflowProgress {
   completed: number;
   total: number;
   message: string;
+  stats?: RunStats;
 }
 
 export interface WorkflowDeps {
   fetchArticles(input: WorkflowInput): Promise<Article[]>;
-  screenArticles(articles: Article[], input: WorkflowInput): Promise<ScreenedArticle[]>;
+  screenArticles(articles: Article[], input: WorkflowInput, onProgress?: (progress: ScreeningProgress) => void): Promise<ScreenedArticle[]>;
   selectArticles(items: ScreenedArticle[], input: WorkflowInput): Article[];
   generateOutline(articles: Article[], input: WorkflowInput): Promise<string>;
   generateReview(outline: string, articles: Article[], input: WorkflowInput, options?: { temperature?: number }): Promise<string>;
@@ -88,10 +96,12 @@ export async function runWorkflow(input: WorkflowInput, deps: WorkflowDeps): Pro
     const screeningCheckpoint = await deps.loadCheckpoint<ScreenedArticle[]>('screening', input.runId);
     let articles: Article[];
     let screenedArticles: ScreenedArticle[];
+    let withAbstractCount = 0;
 
     if (screeningCheckpoint) {
       screenedArticles = screeningCheckpoint;
       articles = screenedArticles.map(({ article }) => article);
+      withAbstractCount = articles.length;
     } else {
       const fetchedCheckpoint = await deps.loadCheckpoint<Article[]>('fetching', input.runId);
       articles = fetchedCheckpoint ?? await deps.fetchArticles(input);
@@ -99,15 +109,42 @@ export async function runWorkflow(input: WorkflowInput, deps: WorkflowDeps): Pro
       assertNotAborted(input.signal);
       const withAbstract = articles.filter((article) => article.abstract.trim().length > 0);
       if (withAbstract.length === 0) throw new WorkflowError('no-abstracts', '没有可用于综述的摘要');
-      deps.onProgress?.({ stage: 'screening', completed: 1, total: 7, message: '正在筛选相关文献' });
-      screenedArticles = await deps.screenArticles(withAbstract, input);
+      withAbstractCount = withAbstract.length;
+      deps.onProgress?.({
+        stage: 'screening',
+        completed: 1,
+        total: 7,
+        message: `正在筛选相关文献（共 ${withAbstract.length} 篇，分批调用 DeepSeek）`,
+        stats: { fetched: articles.length, withAbstract: withAbstract.length },
+      });
+      screenedArticles = await deps.screenArticles(withAbstract, input, (progress) => {
+        const fraction = progress.total > 0 ? progress.completed / progress.total : 1;
+        deps.onProgress?.({
+          stage: 'screening',
+          completed: 1 + fraction,
+          total: 7,
+          message: `正在筛选相关文献（第 ${progress.completed}/${progress.total} 批，已处理 ${progress.processed}/${withAbstract.length} 篇）`,
+          stats: {
+            fetched: articles.length,
+            withAbstract: withAbstract.length,
+            relevant: progress.included,
+          },
+        });
+      });
       await deps.checkpoint('screening', screenedArticles, input.runId);
     }
 
     assertNotAborted(input.signal);
-    deps.onProgress?.({ stage: 'outlining', completed: 2, total: 7, message: '正在选择上下文并生成大纲' });
+    const relevantCount = screenedArticles.filter((item) => item.decision.include).length;
     const selectedArticles = deps.selectArticles(screenedArticles, input);
     if (selectedArticles.length === 0) throw new WorkflowError('no-relevant-articles', '没有筛选出相关文献');
+    deps.onProgress?.({
+      stage: 'outlining',
+      completed: 2,
+      total: 7,
+      message: `正在选择上下文并生成大纲（${selectedArticles.length} 篇入选，${relevantCount} 篇相关）`,
+      stats: { fetched: articles.length, withAbstract: withAbstractCount, relevant: relevantCount, selected: selectedArticles.length },
+    });
     assertNotAborted(input.signal);
     const outlineCheckpoint = await deps.loadCheckpoint<string>('outlining', input.runId);
     const outline = outlineCheckpoint ?? await deps.generateOutline(selectedArticles, input);

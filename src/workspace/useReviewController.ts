@@ -80,6 +80,7 @@ export function useReviewController(settings: AppSettings) {
     const ncbi = new NcbiClient(settings.ncbiApiKey);
     const deps = createWorkflowDeps({ deepSeek, ncbi, repositories: { saveArticles, saveScreening, saveArtifact, saveCheckpoint, getRunBundle } });
     deps.onProgress = (progress) => {
+      Object.assign(stats, progress.stats);
       setState({ kind: 'running', runId, progress, stats: { ...stats } });
       run = { ...run, stage: progress.stage, updatedAt: Date.now(), stats: { ...stats } };
       void saveRun(run);

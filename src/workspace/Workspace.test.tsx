@@ -25,3 +25,13 @@ it('shows completion actions without rendering the generated body', () => {
   expect(screen.queryByText(/## 1\./)).not.toBeInTheDocument();
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
 });
+
+it('shows the live operation message while a run is in progress', () => {
+  render(<Workspace settings={settings} controller={{ generateQuery: vi.fn(), startRun: vi.fn(), cancel: vi.fn(), state: {
+    kind: 'running',
+    runId: 'r',
+    progress: { stage: 'screening', completed: 1.5, total: 7, message: '正在筛选相关文献（第 2/15 批）' },
+    stats: { fetched: 300, withAbstract: 248, relevant: 20 },
+  } }} />);
+  expect(screen.getByRole('status')).toHaveTextContent('正在筛选相关文献（第 2/15 批）');
+});

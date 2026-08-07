@@ -8,8 +8,8 @@ import { buildEvidenceBundle, formatAmaReference } from './references';
 import { validateAndReorderCitations } from './citations';
 import { selectWithinContext, estimateTokens, resolveContextWindow } from './contextBudget';
 import { resolveScreeningModel } from '../api/deepseekClient';
-import { screenArticles as screenArticlesCore } from './relevance';
-import type { WorkflowDeps, WorkflowInput } from './runWorkflow';
+import { batchArticlesForScreening, screenArticles as screenArticlesCore } from './relevance';
+import type { ScreeningProgress, WorkflowDeps, WorkflowInput } from './runWorkflow';
 
 export interface WorkflowRepositories {
   saveArticles?(articles: Article[]): Promise<unknown>;
@@ -46,12 +46,20 @@ export function createWorkflowDeps(services: WorkflowServices): WorkflowDeps {
     return articles;
   };
 
-  const screenArticles = async (articles: Article[], input: WorkflowInput): Promise<ScreenedArticle[]> => {
+  const screenArticles = async (articles: Article[], input: WorkflowInput, onProgress?: (progress: ScreeningProgress) => void): Promise<ScreenedArticle[]> => {
     const models = (await services.deepSeek.listModels(input.signal)) ?? [];
     models.forEach((model) => modelsById.set(model.id, model));
     const screeningModel = resolveScreeningModel(models, input.modelId);
+    const total = batchArticlesForScreening(articles).length;
+    let completed = 0;
+    let processed = 0;
+    let included = 0;
     const decisions = await screenArticlesCore(input.topic, articles, services.deepSeek, screeningModel, input.signal, async (batch) => {
       await repositories.saveScreening?.(batch);
+      completed += 1;
+      processed += batch.length;
+      included += batch.filter((decision) => decision.include).length;
+      onProgress?.({ completed, total, processed, included });
     });
     const byArticleId = new Map(articles.map((article) => [article.id, article]));
     return decisions.flatMap((decision) => {
