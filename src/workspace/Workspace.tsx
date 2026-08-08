@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Circle, Download, LoaderCircle, OctagonX, RotateCcw } from 'lucide-react';
+import type { DeepSeekModel } from '../api/deepseekClient';
 import type { AppSettings, ReviewMode, RunStats } from '../domain/models';
 import type { GenerateQueryInput, ReviewControllerState, StartRunInput } from './useReviewController';
 
@@ -14,6 +15,7 @@ export interface WorkspaceController {
 
 export interface WorkspaceProps {
   settings: AppSettings;
+  models?: DeepSeekModel[];
   controller: WorkspaceController;
   onOpenSettings?(): void;
   online?: boolean;
@@ -33,13 +35,21 @@ function Stats({ stats }: { stats: RunStats }) {
   return <dl className="stats"><div><dt>已抓取</dt><dd>{stats.fetched ?? 0}</dd></div><div><dt>有摘要</dt><dd>{stats.withAbstract ?? 0}</dd></div><div><dt>相关</dt><dd>{stats.relevant ?? 0}</dd></div><div><dt>上下文</dt><dd>{stats.contextSelected ?? 0}</dd></div><div><dt>正文引用</dt><dd>{stats.selected ?? 0}</dd></div></dl>;
 }
 
-export function Workspace({ settings, controller, onOpenSettings, online = true }: WorkspaceProps) {
+export function Workspace({ settings, models = [], controller, onOpenSettings, online = true }: WorkspaceProps) {
   const [topic, setTopic] = useState('');
   const [modelId, setModelId] = useState(settings.modelId);
   const [maxResults, setMaxResults] = useState(settings.maxResults);
   const [mode, setMode] = useState<ReviewMode>('one-click');
   const [query, setQuery] = useState('');
   const [count, setCount] = useState<number | null>(null);
+  const modelOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return [{ id: modelId }, ...models].filter((model) => {
+      if (seen.has(model.id)) return false;
+      seen.add(model.id);
+      return true;
+    });
+  }, [modelId, models]);
   const confirming = count !== null && controller.state.kind !== 'running' && controller.state.kind !== 'completed';
 
   useEffect(() => {
@@ -72,5 +82,5 @@ export function Workspace({ settings, controller, onOpenSettings, online = true 
     return <section className="workspace" aria-labelledby="workspace-heading"><h2 id="workspace-heading">确认 PubMed 检索式</h2><label className="field"><span>PubMed 检索式</span><textarea className="input query-editor" value={query} onChange={(event) => setQuery(event.target.value)} /></label><p className="query-count">预计命中 {count} 篇</p><div className="form-actions"><button type="button" className="button button--secondary" onClick={() => { setCount(null); setQuery(''); controller.reset?.(); }}>返回修改</button><button type="button" className="button button--primary" disabled={!query.trim()} onClick={() => void controller.startRun({ topic, query, modelId, maxResults, queryCount: count ?? undefined, mode: 'confirm-query' })}>开始生成</button></div></section>;
   }
 
-  return <section className="workspace" aria-labelledby="workspace-heading"><div className="section-heading"><div><h2 id="workspace-heading">生成医学综述</h2><p>输入研究主题，选择运行模式后开始</p></div></div><label className="field"><span>研究主题</span><textarea className="input" value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="例如：近五年糖尿病视网膜病变的治疗进展" /></label><fieldset className="mode-control"><legend>运行模式</legend><div className="mode-control__options"><label><input type="radio" name="review-mode" value="confirm-query" checked={mode === 'confirm-query'} onChange={() => setMode('confirm-query')} /><span>确认检索式</span></label><label><input type="radio" name="review-mode" value="one-click" checked={mode === 'one-click'} onChange={() => setMode('one-click')} /><span>一键生成</span></label></div></fieldset><div className="form-grid"><label className="field"><span>DeepSeek 模型</span><select className="input" value={modelId} onChange={(event) => setModelId(event.target.value)}><option value={settings.modelId}>{settings.modelId}</option></select></label><label className="field"><span>最大抓取量</span><input className="input" type="number" min={10} max={300} step={10} value={maxResults} onChange={(event) => setMaxResults(Number(event.target.value))} /></label></div><button type="button" className="button button--primary" disabled={!online || !topic.trim() || maxResults < 10 || maxResults > 300 || controller.state.kind === 'generating-query'} onClick={async () => { const result = await controller.generateQuery({ topic, modelId }); if (result) { if (mode === 'one-click') { void controller.startRun({ topic, query: result.query, queryCount: result.count, mode, modelId, maxResults }); } else { setQuery(result.query); setCount(result.count); } } }}>{controller.state.kind === 'generating-query' ? '正在生成...' : mode === 'one-click' ? '一键生成综述' : '生成检索式'}</button></section>;
+  return <section className="workspace" aria-labelledby="workspace-heading"><div className="section-heading"><div><h2 id="workspace-heading">生成医学综述</h2><p>输入研究主题，选择运行模式后开始</p></div></div><label className="field"><span>研究主题</span><textarea className="input" value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="例如：近五年糖尿病视网膜病变的治疗进展" /></label><fieldset className="mode-control"><legend>运行模式</legend><div className="mode-control__options"><label><input type="radio" name="review-mode" value="confirm-query" checked={mode === 'confirm-query'} onChange={() => setMode('confirm-query')} /><span>确认检索式</span></label><label><input type="radio" name="review-mode" value="one-click" checked={mode === 'one-click'} onChange={() => setMode('one-click')} /><span>一键生成</span></label></div></fieldset><div className="form-grid"><label className="field"><span>DeepSeek 模型</span><select className="input" value={modelId} onChange={(event) => setModelId(event.target.value)}>{modelOptions.map((model) => <option key={model.id} value={model.id}>{model.id}</option>)}</select></label><label className="field"><span>最大抓取量</span><input className="input" type="number" min={10} max={300} step={10} value={maxResults} onChange={(event) => setMaxResults(Number(event.target.value))} /></label></div><button type="button" className="button button--primary" disabled={!online || !topic.trim() || maxResults < 10 || maxResults > 300 || controller.state.kind === 'generating-query'} onClick={async () => { const result = await controller.generateQuery({ topic, modelId }); if (result) { if (mode === 'one-click') { void controller.startRun({ topic, query: result.query, queryCount: result.count, mode, modelId, maxResults }); } else { setQuery(result.query); setCount(result.count); } } }}>{controller.state.kind === 'generating-query' ? '正在生成...' : mode === 'one-click' ? '一键生成综述' : '生成检索式'}</button></section>;
 }

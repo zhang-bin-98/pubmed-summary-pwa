@@ -5,6 +5,17 @@ import { Workspace } from './Workspace';
 
 const settings = { deepSeekApiKey: 'd', ncbiApiKey: 'n', modelId: 'deepseek-v4-flash', maxResults: 300, connectionChecks: { deepSeek: 'passed' as const, ncbi: 'passed' as const } };
 
+it('renders every model returned by the settings scan', () => {
+  render(<Workspace
+    settings={settings}
+    models={[{ id: 'deepseek-v4-flash' }, { id: 'deepseek-v4-pro' }]}
+    controller={{ generateQuery: vi.fn(), startRun: vi.fn(), cancel: vi.fn(), state: { kind: 'idle' } }}
+  />);
+
+  const modelSelect = screen.getByRole('combobox') as HTMLSelectElement;
+  expect(Array.from(modelSelect.options, ({ value }) => value)).toEqual(['deepseek-v4-flash', 'deepseek-v4-pro']);
+});
+
 it('defaults the workspace to one-click generation mode', () => {
   render(<Workspace settings={settings} controller={{ generateQuery: vi.fn(), startRun: vi.fn(), cancel: vi.fn(), state: { kind: 'idle' } }} />);
   expect(screen.getByRole('radio', { name: '一键生成' })).toBeChecked();
