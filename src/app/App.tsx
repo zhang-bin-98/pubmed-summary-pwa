@@ -43,7 +43,7 @@ export function App() {
       </header>
       {!online && <div className="offline-banner" role="status">当前离线：可查看历史并重新导出，不能发起新的 PubMed 或 DeepSeek 请求。</div>}
       <main>
-        {view === 'workspace' && !needsApiKeys && <Workspace settings={settingsState.settings} controller={reviewController} onOpenSettings={() => setView('settings')} online={online} />}
+        {view === 'workspace' && !needsApiKeys && <Workspace settings={settingsState.settings} models={settingsState.models} controller={reviewController} onOpenSettings={() => setView('settings')} online={online} />}
         {activeView === 'history' && <HistoryView runs={historyState.runs} error={historyState.error} storage={historyState.storage} onResume={historyState.resume} onDownloadDocx={historyState.downloadDocx} onExportJson={historyState.exportJson} onExportCsv={historyState.exportCsv} onDelete={historyState.deleteRun} onClear={historyState.clearHistory} />}
         {(activeView === 'settings' || (!settingsState.loading && needsApiKeys)) && (
           <SettingsView
