@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CodeXml, History, LibraryBig, Settings } from 'lucide-react';
+import { canShareFiles } from '../export/dataExport';
 import { HistoryView } from '../history/HistoryView';
 import { useHistory } from '../history/useHistory';
 import { SettingsView } from '../settings/SettingsView';
@@ -44,7 +45,7 @@ export function App() {
       {!online && <div className="offline-banner" role="status">当前离线：可查看历史并重新导出，不能发起新的 PubMed 或 DeepSeek 请求。</div>}
       <main>
         {view === 'workspace' && !needsApiKeys && <Workspace settings={settingsState.settings} models={settingsState.models} controller={reviewController} onOpenSettings={() => setView('settings')} online={online} />}
-        {activeView === 'history' && <HistoryView runs={historyState.runs} error={historyState.error} storage={historyState.storage} onResume={historyState.resume} onDownloadDocx={historyState.downloadDocx} onExportJson={historyState.exportJson} onExportCsv={historyState.exportCsv} onDelete={historyState.deleteRun} onClear={historyState.clearHistory} />}
+        {activeView === 'history' && <HistoryView runs={historyState.runs} error={historyState.error} storage={historyState.storage} canShare={canShareFiles()} onResume={historyState.resume} onDownloadDocx={historyState.downloadDocx} onShareDocx={historyState.shareDocx} onExportJson={historyState.exportJson} onExportCsv={historyState.exportCsv} onDelete={historyState.deleteRun} onClear={historyState.clearHistory} />}
         {(activeView === 'settings' || (!settingsState.loading && needsApiKeys)) && (
           <SettingsView
             initial={settingsState.settings}

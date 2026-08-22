@@ -1,5 +1,5 @@
-import { expect, it, vi } from 'vitest';
-import { buildArticlesCsv, buildRunJson, downloadBlob } from './dataExport';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildArticlesCsv, buildRunJson, canShareFiles, downloadBlob, shareBlob } from './dataExport';
 
 it('never exports API keys', () => {
   const json = buildRunJson({ run: { id: 'r', topic: '主题' }, articles: [], screening: [], artifact: {} });
@@ -33,4 +33,51 @@ it('keeps the object URL alive until the browser starts the download', () => {
   revokeObjectURL.mockRestore();
   click.mockRestore();
   vi.useRealTimers();
+});
+
+describe('shareBlob', () => {
+  const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+  afterEach(() => {
+    delete (navigator as { canShare?: unknown }).canShare;
+    delete (navigator as { share?: unknown }).share;
+  });
+
+  it('hands the file to the system share sheet', async () => {
+    const share = vi.fn(async (_data: ShareData) => undefined);
+    Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+    Object.defineProperty(navigator, 'share', { value: share, configurable: true });
+
+    await expect(shareBlob(new Blob(['docx'], { type: DOCX_MIME }), '综述.docx', '综述')).resolves.toBe('shared');
+
+    expect(share).toHaveBeenCalledOnce();
+    const data = share.mock.calls[0][0];
+    expect(data.title).toBe('综述');
+    expect(data.files).toHaveLength(1);
+    expect(data.files![0].name).toBe('综述.docx');
+    expect(data.files![0].type).toBe(DOCX_MIME);
+  });
+
+  it('treats dismissing the share sheet as cancelled', async () => {
+    Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+    Object.defineProperty(navigator, 'share', { value: async () => { throw new DOMException('Aborted', 'AbortError'); }, configurable: true });
+
+    await expect(shareBlob(new Blob(['docx'], { type: DOCX_MIME }), '综述.docx')).resolves.toBe('cancelled');
+  });
+
+  it('reports unsupported when file sharing is not available', async () => {
+    const share = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'canShare', { value: () => false, configurable: true });
+    Object.defineProperty(navigator, 'share', { value: share, configurable: true });
+
+    await expect(shareBlob(new Blob(['docx'], { type: DOCX_MIME }), '综述.docx')).resolves.toBe('unsupported');
+    expect(share).not.toHaveBeenCalled();
+  });
+
+  it('detects file-sharing support for the docx type', () => {
+    expect(canShareFiles()).toBe(false);
+    Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+    Object.defineProperty(navigator, 'share', { value: async () => undefined, configurable: true });
+    expect(canShareFiles()).toBe(true);
+  });
 });

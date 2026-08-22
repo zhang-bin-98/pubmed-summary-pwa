@@ -39,3 +39,30 @@ export function downloadBlob(blob: Blob, filename: string): void {
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
+
+export type ShareOutcome = 'shared' | 'cancelled' | 'unsupported';
+
+const DOCX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+export function canShareFiles(): boolean {
+  if (typeof navigator.canShare !== 'function' || typeof navigator.share !== 'function') return false;
+  try {
+    return navigator.canShare({ files: [new File([new Uint8Array([0])], 'probe.docx', { type: DOCX_MIME_TYPE })] });
+  } catch {
+    return false;
+  }
+}
+
+export async function shareBlob(blob: Blob, filename: string, title?: string): Promise<ShareOutcome> {
+  if (typeof navigator.canShare !== 'function' || typeof navigator.share !== 'function') return 'unsupported';
+  const file = new File([blob], filename, { type: blob.type });
+  if (!navigator.canShare({ files: [file] })) return 'unsupported';
+  try {
+    await navigator.share({ files: [file], ...(title ? { title } : {}) });
+    return 'shared';
+  } catch (error) {
+    const aborted = (error instanceof DOMException && error.name === 'AbortError') || (error instanceof Error && error.name === 'AbortError');
+    if (aborted) return 'cancelled';
+    throw error;
+  }
+}
