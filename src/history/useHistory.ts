@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReviewRun } from '../domain/models';
-import { buildArticlesCsv, buildRunJson, downloadBlob, shareOrDownloadBlob } from '../export/dataExport';
+import { buildArticlesCsv, buildRunJson, downloadBlob, shareBlob } from '../export/dataExport';
 import { clearHistoryData, deleteRun as deleteStoredRun, getArtifact, getRunBundle, listRuns, saveRun } from '../storage/repositories';
 
 export function normalizeCompletedRunStats(run: ReviewRun, referenceCount: number): ReviewRun {
@@ -64,10 +64,6 @@ export function useHistory(onResume?: (runId: string) => Promise<void> | void) {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  // Warm the dynamic docx module so the share sheet opens close to the tap,
-  // before the iOS user-gesture window can expire.
-  useEffect(() => { void import('../export/docxExport'); }, []);
-
   const resume = useCallback(async (runId: string) => { await onResume?.(runId); }, [onResume]);
 
   const downloadDocx = useCallback(async (runId: string) => {
@@ -90,8 +86,8 @@ export function useHistory(onResume?: (runId: string) => Promise<void> | void) {
       const { buildDocxBlob, sanitizeDocxFileName } = await import('../export/docxExport');
       const title = bundle.artifact.title || bundle.run.topic;
       const blob = await buildDocxBlob({ title, markdown: bundle.artifact.validatedMarkdown, references: bundle.artifact.references });
-      const outcome = await shareOrDownloadBlob(blob, sanitizeDocxFileName(title, new Date(bundle.run.updatedAt).toISOString().slice(0, 10)), title);
-      setError(outcome === 'downloaded' ? '系统分享不可用，已改为下载 Word 文档。' : undefined);
+      await shareBlob(blob, sanitizeDocxFileName(title, new Date(bundle.run.updatedAt).toISOString().slice(0, 10)), title);
+      setError(undefined);
     } catch (caught) {
       setError(caught instanceof Error && caught.message === 'history-incomplete' ? '历史记录缺少最终正文或参考文献，无法导出 Word。' : 'Word 导出失败。');
     }

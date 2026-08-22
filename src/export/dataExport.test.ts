@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildArticlesCsv, buildRunJson, canShareFiles, downloadBlob, shareBlob, shareOrDownloadBlob } from './dataExport';
+import { buildArticlesCsv, buildRunJson, canShareFiles, downloadBlob, shareBlob } from './dataExport';
 
 it('never exports API keys', () => {
   const json = buildRunJson({ run: { id: 'r', topic: '主题' }, articles: [], screening: [], artifact: {} });
@@ -79,55 +79,5 @@ describe('shareBlob', () => {
     Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
     Object.defineProperty(navigator, 'share', { value: async () => undefined, configurable: true });
     expect(canShareFiles()).toBe(true);
-  });
-});
-
-describe('shareOrDownloadBlob', () => {
-  const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-  const blob = new Blob(['docx'], { type: DOCX_MIME });
-
-  afterEach(() => {
-    delete (navigator as { canShare?: unknown }).canShare;
-    delete (navigator as { share?: unknown }).share;
-  });
-
-  function mockAnchorClick() {
-    const anchor = document.createElement('a');
-    const click = vi.spyOn(anchor, 'click').mockImplementation(() => undefined);
-    vi.spyOn(document, 'createElement').mockReturnValue(anchor);
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
-    return click;
-  }
-
-  it('downloads when the system rejects the share request', async () => {
-    Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
-    Object.defineProperty(navigator, 'share', { value: async () => { throw new DOMException('Denied', 'NotAllowedError'); }, configurable: true });
-    const click = mockAnchorClick();
-
-    await expect(shareOrDownloadBlob(blob, '综述.docx', '综述')).resolves.toBe('downloaded');
-
-    expect(click).toHaveBeenCalledOnce();
-  });
-
-  it('downloads when file sharing is unsupported', async () => {
-    const click = mockAnchorClick();
-
-    await expect(shareOrDownloadBlob(blob, '综述.docx')).resolves.toBe('downloaded');
-
-    expect(click).toHaveBeenCalledOnce();
-  });
-
-  it('keeps shared and cancelled outcomes without downloading', async () => {
-    const share = vi.fn(async (_data: ShareData) => undefined);
-    Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
-    Object.defineProperty(navigator, 'share', { value: share, configurable: true });
-    const click = mockAnchorClick();
-
-    await expect(shareOrDownloadBlob(blob, '综述.docx')).resolves.toBe('shared');
-
-    share.mockImplementation(async () => { throw new DOMException('Aborted', 'AbortError'); });
-    await expect(shareOrDownloadBlob(blob, '综述.docx')).resolves.toBe('cancelled');
-
-    expect(click).not.toHaveBeenCalled();
   });
 });
