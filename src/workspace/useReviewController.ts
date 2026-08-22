@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DeepSeekClient } from '../api/deepseekClient';
 import { NcbiClient } from '../api/ncbiClient';
 import type { AppSettings, ReviewMode, ReviewRun, RunStats } from '../domain/models';
-import { downloadBlob, shareBlob } from '../export/dataExport';
+import { downloadBlob, shareOrDownloadBlob } from '../export/dataExport';
 import { getRunBundle, saveArtifact, saveArticles, saveCheckpoint, saveRun, saveScreening } from '../storage/repositories';
 import { countConfirmedQuery, createWorkflowDeps, generateConfirmedQuery } from '../workflow/createWorkflowDeps';
 import { runWorkflow, type WorkflowProgress } from '../workflow/runWorkflow';
@@ -32,6 +32,12 @@ export function useReviewController(settings: AppSettings) {
   const activeController = useRef<AbortController | null>(null);
 
   useEffect(() => () => activeController.current?.abort(), []);
+
+  // Warm the dynamic docx module for the completed-view share action, keeping
+  // the tap-to-share gap inside the iOS user-gesture window.
+  useEffect(() => {
+    if (state.kind === 'completed') void import('../export/docxExport');
+  }, [state.kind]);
 
   const requireConnections = useCallback(() => {
     if (!settings.deepSeekApiKey || !settings.ncbiApiKey || !hasConnectionDecision(settings.connectionChecks.deepSeek) || !hasConnectionDecision(settings.connectionChecks.ncbi)) {
@@ -138,7 +144,7 @@ export function useReviewController(settings: AppSettings) {
 
   const share = useCallback(async (runId: string) => {
     const { blob, filename, title } = await buildRunDocx(runId);
-    await shareBlob(blob, filename, title);
+    await shareOrDownloadBlob(blob, filename, title);
   }, [buildRunDocx]);
 
   const retry = useCallback(async (runId: string) => {

@@ -66,3 +66,22 @@ export async function shareBlob(blob: Blob, filename: string, title?: string): P
     throw error;
   }
 }
+
+export type ShareOrDownloadOutcome = 'shared' | 'cancelled' | 'downloaded';
+
+// navigator.share needs a recent user gesture (especially on iOS), which async
+// blob building can outlast; a rejected share must still hand the file over.
+export async function shareOrDownloadBlob(blob: Blob, filename: string, title?: string): Promise<ShareOrDownloadOutcome> {
+  let outcome: ShareOutcome;
+  try {
+    outcome = await shareBlob(blob, filename, title);
+  } catch (error) {
+    console.error('share failed, falling back to download', error);
+    outcome = 'unsupported';
+  }
+  if (outcome === 'unsupported') {
+    downloadBlob(blob, filename);
+    return 'downloaded';
+  }
+  return outcome;
+}
