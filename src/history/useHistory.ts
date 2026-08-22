@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReviewRun } from '../domain/models';
-import { buildArticlesCsv, buildRunJson, downloadBlob, shareBlob } from '../export/dataExport';
+import { buildArticlesCsv, buildRunJson, downloadBlob } from '../export/dataExport';
 import { clearHistoryData, deleteRun as deleteStoredRun, getArtifact, getRunBundle, listRuns, saveRun } from '../storage/repositories';
 
 export function normalizeCompletedRunStats(run: ReviewRun, referenceCount: number): ReviewRun {
@@ -79,20 +79,6 @@ export function useHistory(onResume?: (runId: string) => Promise<void> | void) {
     }
   }, []);
 
-  const shareDocx = useCallback(async (runId: string) => {
-    try {
-      const bundle = await getRunBundle(runId);
-      if (!bundle?.artifact?.validatedMarkdown || !bundle.artifact.references) throw new Error('history-incomplete');
-      const { buildDocxBlob, sanitizeDocxFileName } = await import('../export/docxExport');
-      const title = bundle.artifact.title || bundle.run.topic;
-      const blob = await buildDocxBlob({ title, markdown: bundle.artifact.validatedMarkdown, references: bundle.artifact.references });
-      await shareBlob(blob, sanitizeDocxFileName(title, new Date(bundle.run.updatedAt).toISOString().slice(0, 10)), title);
-      setError(undefined);
-    } catch (caught) {
-      setError(caught instanceof Error && caught.message === 'history-incomplete' ? '历史记录缺少最终正文或参考文献，无法导出 Word。' : 'Word 导出失败。');
-    }
-  }, []);
-
   const exportJson = useCallback(async (runId: string) => {
     const bundle = await getRunBundle(runId);
     if (!bundle) return;
@@ -114,5 +100,5 @@ export function useHistory(onResume?: (runId: string) => Promise<void> | void) {
   const deleteRun = useCallback(async (runId: string) => { await deleteStoredRun(runId); await refresh(); }, [refresh]);
   const clearHistory = useCallback(async () => { await clearHistoryData(); await refresh(); }, [refresh]);
 
-  return { runs, error, storage, refresh, resume, downloadDocx, shareDocx, exportJson, exportCsv, deleteRun, clearHistory };
+  return { runs, error, storage, refresh, resume, downloadDocx, exportJson, exportCsv, deleteRun, clearHistory };
 }

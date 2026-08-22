@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DeepSeekClient } from '../api/deepseekClient';
 import { NcbiClient } from '../api/ncbiClient';
 import type { AppSettings, ReviewMode, ReviewRun, RunStats } from '../domain/models';
-import { downloadBlob, shareBlob } from '../export/dataExport';
+import { downloadBlob } from '../export/dataExport';
 import { getRunBundle, saveArtifact, saveArticles, saveCheckpoint, saveRun, saveScreening } from '../storage/repositories';
 import { countConfirmedQuery, createWorkflowDeps, generateConfirmedQuery } from '../workflow/createWorkflowDeps';
 import { runWorkflow, type WorkflowProgress } from '../workflow/runWorkflow';
@@ -121,25 +121,14 @@ export function useReviewController(settings: AppSettings) {
 
   const cancel = useCallback(() => activeController.current?.abort(), []);
 
-  const buildRunDocx = useCallback(async (runId: string) => {
+  const download = useCallback(async (runId: string) => {
     const bundle = await getRunBundle(runId);
     const artifact = bundle?.artifact;
     if (!bundle || !artifact?.validatedMarkdown || !artifact.references) throw new Error('history-incomplete');
     const { buildDocxBlob, sanitizeDocxFileName } = await import('../export/docxExport');
-    const title = artifact.title || bundle.run.topic;
-    const blob = await buildDocxBlob({ title, markdown: artifact.validatedMarkdown, references: artifact.references });
-    return { blob, filename: sanitizeDocxFileName(bundle.run.topic, new Date(bundle.run.updatedAt).toISOString().slice(0, 10)), title };
+    const blob = await buildDocxBlob({ title: artifact.title || bundle.run.topic, markdown: artifact.validatedMarkdown, references: artifact.references });
+    downloadBlob(blob, sanitizeDocxFileName(bundle.run.topic, new Date(bundle.run.updatedAt).toISOString().slice(0, 10)));
   }, []);
-
-  const download = useCallback(async (runId: string) => {
-    const { blob, filename } = await buildRunDocx(runId);
-    downloadBlob(blob, filename);
-  }, [buildRunDocx]);
-
-  const share = useCallback(async (runId: string) => {
-    const { blob, filename, title } = await buildRunDocx(runId);
-    await shareBlob(blob, filename, title);
-  }, [buildRunDocx]);
 
   const retry = useCallback(async (runId: string) => {
     const bundle = await getRunBundle(runId);
@@ -147,5 +136,5 @@ export function useReviewController(settings: AppSettings) {
     await startRun({ runId, topic: bundle.run.topic, query: bundle.run.query, modelId: bundle.run.modelId, maxResults: bundle.run.maxResults, mode: bundle.run.mode, queryCount: bundle.run.queryCount });
   }, [startRun]);
 
-  return { state, generateQuery, startRun, cancel, download, share, retry, reset: () => setState({ kind: 'idle' }) };
+  return { state, generateQuery, startRun, cancel, download, retry, reset: () => setState({ kind: 'idle' }) };
 }

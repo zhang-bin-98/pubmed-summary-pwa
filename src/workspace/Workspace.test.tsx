@@ -1,14 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, it, vi } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { Workspace } from './Workspace';
 
 const settings = { deepSeekApiKey: 'd', ncbiApiKey: 'n', modelId: 'deepseek-v4-flash', maxResults: 300, connectionChecks: { deepSeek: 'passed' as const, ncbi: 'passed' as const } };
-
-afterEach(() => {
-  delete (navigator as { canShare?: unknown }).canShare;
-  delete (navigator as { share?: unknown }).share;
-});
 
 it('renders every model returned by the settings scan', () => {
   render(<Workspace
@@ -66,21 +61,6 @@ it('shows completion actions without auto-downloading when the workspace mounts'
   expect(screen.queryByText(/## 1\./)).not.toBeInTheDocument();
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   expect(download).not.toHaveBeenCalled();
-});
-
-it('opens the system share sheet from the completed view when supported', async () => {
-  const user = userEvent.setup();
-  Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
-  Object.defineProperty(navigator, 'share', { value: async () => undefined, configurable: true });
-  const share = vi.fn();
-  render(<Workspace settings={settings} controller={{ generateQuery: vi.fn(), startRun: vi.fn(), cancel: vi.fn(), download: vi.fn(), share, state: { kind: 'completed', runId: 'r', stats: {} } }} />);
-  await user.click(screen.getByRole('button', { name: '用其他应用打开' }));
-  expect(share).toHaveBeenCalledWith('r');
-});
-
-it('hides the share action when file sharing is unsupported', () => {
-  render(<Workspace settings={settings} controller={{ generateQuery: vi.fn(), startRun: vi.fn(), cancel: vi.fn(), share: vi.fn(), state: { kind: 'completed', runId: 'r', stats: {} } }} />);
-  expect(screen.queryByRole('button', { name: '用其他应用打开' })).not.toBeInTheDocument();
 });
 
 it('does not trigger a second download when a running task transitions to completed', () => {

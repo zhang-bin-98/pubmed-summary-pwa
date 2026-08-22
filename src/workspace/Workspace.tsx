@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Circle, Download, LoaderCircle, OctagonX, RotateCcw, Share2 } from 'lucide-react';
+import { Check, Circle, Download, LoaderCircle, OctagonX, RotateCcw } from 'lucide-react';
 import type { DeepSeekModel } from '../api/deepseekClient';
 import type { AppSettings, ReviewMode, RunStats } from '../domain/models';
-import { canShareFiles } from '../export/dataExport';
 import type { GenerateQueryInput, ReviewControllerState, StartRunInput } from './useReviewController';
 
 export interface WorkspaceController {
@@ -11,7 +10,6 @@ export interface WorkspaceController {
   startRun(input: StartRunInput): Promise<void> | void;
   cancel(): void;
   download?(runId: string): Promise<void> | void;
-  share?(runId: string): Promise<void> | void;
   reset?(): void;
 }
 
@@ -72,7 +70,7 @@ export function Workspace({ settings, models = [], controller, onOpenSettings, o
 
   if (controller.state.kind === 'completed') {
     const runId = controller.state.runId;
-    return <section className="workspace" aria-labelledby="workspace-heading"><h2 id="workspace-heading">综述已完成</h2><Stats stats={controller.state.stats} /><div className="form-actions"><button type="button" className="button button--primary" onClick={() => void controller.download?.(runId)}><Download />再次下载</button>{controller.share && canShareFiles() && <button type="button" className="button button--secondary" onClick={() => void controller.share?.(runId)}><Share2 />用其他应用打开</button>}<button type="button" className="button button--secondary" onClick={controller.reset}><RotateCcw />新建综述</button></div></section>;
+    return <section className="workspace" aria-labelledby="workspace-heading"><h2 id="workspace-heading">综述已完成</h2><Stats stats={controller.state.stats} /><div className="form-actions"><button type="button" className="button button--primary" onClick={() => void controller.download?.(runId)}><Download />再次下载</button><button type="button" className="button button--secondary" onClick={controller.reset}><RotateCcw />新建综述</button></div></section>;
   }
 
   if (controller.state.kind === 'failed' && !confirming) {
