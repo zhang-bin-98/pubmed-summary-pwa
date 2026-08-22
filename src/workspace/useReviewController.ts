@@ -74,14 +74,14 @@ export function useReviewController(settings: AppSettings) {
     const runId = resumedRunId ?? createRunId();
     const now = Date.now();
     const existingBundle = resumedRunId ? await getRunBundle(resumedRunId) : undefined;
-    const isLegacyResume = Boolean(existingBundle?.run && existingBundle.run.mode === undefined && existingBundle.run.screeningConcurrency === undefined);
+    const isLegacyResume = Boolean(existingBundle?.run && existingBundle.run.mode === undefined);
     let run: ReviewRun = {
       id: runId,
       topic,
       query,
       modelId,
       maxResults,
-      ...(isLegacyResume ? {} : { mode: mode ?? 'confirm-query', queryCount, screeningConcurrency: 5 }),
+      ...(isLegacyResume ? {} : { mode: mode ?? 'confirm-query', queryCount }),
       stage: 'fetching',
       status: 'active',
       createdAt: existingBundle?.run.createdAt ?? now,

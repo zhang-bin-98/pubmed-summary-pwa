@@ -114,7 +114,7 @@ export async function runWorkflow(input: WorkflowInput, deps: WorkflowDeps): Pro
         stage: 'screening',
         completed: 1,
         total: 7,
-        message: `正在筛选相关文献（共 ${withAbstract.length} 篇；并行最多 5 路，启动间隔 1 秒）`,
+        message: `正在筛选相关文献（共 ${withAbstract.length} 篇；全部批次并行请求）`,
         stats: { fetched: articles.length, withAbstract: withAbstract.length },
       });
       screenedArticles = await deps.screenArticles(withAbstract, input, (progress) => {
@@ -123,7 +123,7 @@ export async function runWorkflow(input: WorkflowInput, deps: WorkflowDeps): Pro
           stage: 'screening',
           completed: 1 + fraction,
           total: 7,
-          message: `正在筛选相关文献（第 ${progress.completed}/${progress.total} 批，已处理 ${progress.processed}/${withAbstract.length} 篇；并行最多 5 路，启动间隔 1 秒）`,
+          message: `正在筛选相关文献（第 ${progress.completed}/${progress.total} 批，已处理 ${progress.processed}/${withAbstract.length} 篇；全部批次并行请求）`,
           stats: {
             fetched: articles.length,
             withAbstract: withAbstract.length,

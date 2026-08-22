@@ -84,8 +84,6 @@ export function createWorkflowDeps(services: WorkflowServices): WorkflowDeps {
     }
     if (completed > 0) onProgress?.({ completed, total, processed, included });
     const decisions = await screenArticlesParallel(input.topic, articles, services.deepSeek, screeningModel, {
-      concurrency: 5,
-      launchIntervalMs: 1000,
       signal: input.signal,
       completedBatches,
       onBatchComplete: async (batchIndex, batch) => {

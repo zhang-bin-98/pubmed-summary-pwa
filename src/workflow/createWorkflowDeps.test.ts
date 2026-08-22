@@ -32,7 +32,7 @@ function screeningResponse(prompt: string): string {
 it('persists decisions before a completed-batch checkpoint and reports progress', async () => {
   vi.useFakeTimers();
   const writes: string[] = [];
-  const saveScreening = vi.fn(async () => { writes.push('decisions'); });
+  const saveScreening = vi.fn(async (batch: ScreeningDecision[]) => { writes.push(`decisions:${batch[0].articleId}`); });
   const saveCheckpoint = vi.fn(async (checkpoint: Checkpoint) => { writes.push(checkpoint.id); });
   const complete = vi.fn(async ({ prompt }: { prompt: string }) => screeningResponse(prompt));
   const deps = createWorkflowDeps({
@@ -45,7 +45,9 @@ it('persists decisions before a completed-batch checkpoint and reports progress'
   await vi.runAllTimersAsync();
   await pending;
   vi.useRealTimers();
-  expect(writes).toEqual(['decisions', 'r:screening-batch:0', 'decisions', 'r:screening-batch:1']);
+  expect(writes).toEqual(expect.arrayContaining(['decisions:r:1', 'decisions:r:21', 'r:screening-batch:0', 'r:screening-batch:1']));
+  expect(writes.indexOf('decisions:r:1')).toBeLessThan(writes.indexOf('r:screening-batch:0'));
+  expect(writes.indexOf('decisions:r:21')).toBeLessThan(writes.indexOf('r:screening-batch:1'));
   expect(progress).toHaveBeenLastCalledWith({ completed: 2, total: 2, processed: 21, included: 21 });
 });
 

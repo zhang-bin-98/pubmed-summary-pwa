@@ -57,7 +57,7 @@ describe('parallel relevance screening', () => {
     expect(decisions.map(({ articleId }) => articleId)).toEqual(articles.map(({ id }) => id));
   });
 
-  it('limits in-flight batches to five and spaces launches by one second', async () => {
+  it('launches every batch at once without staggering', async () => {
     vi.useFakeTimers();
     const articles = makeArticles(300);
     const launchTimes: number[] = [];
@@ -72,23 +72,22 @@ describe('parallel relevance screening', () => {
       return responseForPrompt(prompt);
     });
     const pending = screenArticlesParallel('主题', articles, { complete } as never, 'model', {
-      concurrency: 5,
-      launchIntervalMs: 1000,
       signal: new AbortController().signal,
     });
+    expect(maxInFlight).toBe(15);
+    expect(launchTimes).toHaveLength(15);
+    expect(launchTimes.every((time) => time === launchTimes[0])).toBe(true);
     await vi.advanceTimersByTimeAsync(40_000);
     const decisions = await pending;
     vi.useRealTimers();
-    expect(maxInFlight).toBe(5);
-    expect(launchTimes).toHaveLength(15);
-    expect(launchTimes.slice(1).every((time, index) => time - launchTimes[index] >= 1000)).toBe(true);
     expect(decisions.map(({ articleId }) => articleId)).toEqual(articles.map(({ id }) => id));
   });
 
-  it('skips completed batches and stops launching after a terminal failure', async () => {
+  it('skips completed batches and checkpoints in-flight batches despite a terminal failure', async () => {
     vi.useFakeTimers();
     const articles = makeArticles(140);
     const launched: string[] = [];
+    const completedIndexes: number[] = [];
     const complete = vi.fn(async ({ prompt }: { prompt: string }) => {
       const start = prompt.lastIndexOf('[{"sourceId"');
       const firstId = (JSON.parse(prompt.slice(start)) as Array<{ sourceId: string }>)[0].sourceId;
@@ -98,9 +97,10 @@ describe('parallel relevance screening', () => {
       return responseForPrompt(prompt);
     });
     const pending = screenArticlesParallel('主题', articles, { complete } as never, 'model', {
-      concurrency: 5,
-      launchIntervalMs: 1000,
       signal: new AbortController().signal,
+      onBatchComplete: (batchIndex) => {
+        completedIndexes.push(batchIndex);
+      },
       completedBatches: new Map([[0, makeArticles(20).map((article) => ({ id: `${article.id}:screening`, runId: 'run', articleId: article.id, score: 3 as const, include: true, reason: '相关', promptVersion: 'relevance-v1' as const }))]]),
     });
     const rejection = expect(pending).rejects.toThrow('terminal');
@@ -108,11 +108,11 @@ describe('parallel relevance screening', () => {
     await rejection;
     vi.useRealTimers();
     expect(launched).not.toContain('run:1');
-    expect(launched.some((id) => Number(id.split(':')[1]) > 120)).toBe(false);
+    expect(launched).toHaveLength(6);
+    expect(completedIndexes.sort()).toEqual([1, 3, 4, 5, 6]);
   });
 
-  it('aborts staggered workers without launching further batches', async () => {
-    vi.useFakeTimers();
+  it('rejects with AbortError when aborted after every batch is already in flight', async () => {
     const controller = new AbortController();
     const launched: string[] = [];
     const complete = vi.fn(({ prompt, signal }: { prompt: string; signal: AbortSignal }) => new Promise<string>((resolve, reject) => {
@@ -122,25 +122,18 @@ describe('parallel relevance screening', () => {
       void resolve;
     }));
     const pending = screenArticlesParallel('主题', makeArticles(300), { complete } as never, 'model', {
-      concurrency: 5,
-      launchIntervalMs: 1000,
       signal: controller.signal,
     });
+    expect(launched).toHaveLength(15);
     const rejection = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
-    await vi.advanceTimersByTimeAsync(2500);
     controller.abort();
-    await vi.runAllTimersAsync();
     await rejection;
-    vi.useRealTimers();
-    expect(launched).toHaveLength(3);
   });
 
   it('accepts completed batch indexes as a scheduler resume hint', async () => {
     const articles = makeArticles(21);
     const complete = vi.fn(async ({ prompt }: { prompt: string }) => responseForPrompt(prompt));
     const decisions = await screenArticlesParallel('主题', articles, { complete } as never, 'model', {
-      concurrency: 5,
-      launchIntervalMs: 1000,
       signal: new AbortController().signal,
       completedBatchIndexes: new Set([0]),
     });

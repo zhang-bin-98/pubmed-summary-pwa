@@ -30,7 +30,7 @@ describe('runWorkflow', () => {
       stats: expect.objectContaining({ fetched: 1, withAbstract: 1, relevant: 20 }),
     }));
     expect(progress).toHaveBeenCalledWith(expect.objectContaining({
-      message: expect.stringContaining('并行最多 5 路，启动间隔 1 秒'),
+      message: expect.stringContaining('全部批次并行请求'),
     }));
   });
 

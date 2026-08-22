@@ -108,28 +108,10 @@ export async function screenArticleBatch(
 }
 
 export interface ScreeningSchedulerOptions {
-  concurrency: 5;
-  launchIntervalMs: 1000;
   signal: AbortSignal;
   onBatchComplete?: (batchIndex: number, decisions: ScreeningDecision[]) => Promise<void> | void;
   completedBatchIndexes?: Set<number>;
   completedBatches?: Map<number, ScreeningDecision[]>;
-}
-
-function abortableDelay(milliseconds: number, signal: AbortSignal): Promise<void> {
-  if (milliseconds <= 0) return Promise.resolve();
-  if (signal.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener('abort', abort);
-      resolve();
-    }, milliseconds);
-    const abort = () => {
-      clearTimeout(timer);
-      reject(new DOMException('Aborted', 'AbortError'));
-    };
-    signal.addEventListener('abort', abort, { once: true });
-  });
 }
 
 export async function screenArticlesParallel(
@@ -143,9 +125,8 @@ export async function screenArticlesParallel(
   const results = new Map(options.completedBatches ?? []);
   const completedBatchIndexes = options.completedBatchIndexes ?? new Set(results.keys());
   const pendingIndexes = batches.map((_, index) => index).filter((index) => !completedBatchIndexes.has(index));
-  const active = new Set<Promise<void>>();
+  const active: Promise<void>[] = [];
   let terminalError: unknown;
-  let lastLaunchAt: number | undefined;
 
   const launch = (batchIndex: number) => {
     const task = screenArticleBatch(topic, batches[batchIndex], client, model, options.signal)
@@ -155,29 +136,12 @@ export async function screenArticlesParallel(
       })
       .catch((error: unknown) => {
         terminalError ??= error;
-      })
-      .finally(() => active.delete(task));
-    active.add(task);
+      });
+    active.push(task);
   };
 
-  try {
-    for (const batchIndex of pendingIndexes) {
-      if (terminalError) break;
-      if (options.signal.aborted) throw new DOMException('Aborted', 'AbortError');
-      if (active.size >= options.concurrency) await Promise.race(active);
-      if (terminalError) break;
-      if (lastLaunchAt !== undefined) {
-        const remaining = options.launchIntervalMs - (Date.now() - lastLaunchAt);
-        await abortableDelay(remaining, options.signal);
-      }
-      if (terminalError) break;
-      if (options.signal.aborted) throw new DOMException('Aborted', 'AbortError');
-      lastLaunchAt = Date.now();
-      launch(batchIndex);
-    }
-  } catch (error) {
-    terminalError ??= error;
-  }
+  if (options.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+  for (const batchIndex of pendingIndexes) launch(batchIndex);
 
   await Promise.all(active);
   if (terminalError) throw terminalError;
@@ -185,20 +149,4 @@ export async function screenArticlesParallel(
   const articleOrder = new Map(articles.map((article) => [article.id, article.sourceOrder]));
   return [...results.values()].flat().sort((left, right) =>
     (articleOrder.get(left.articleId) ?? Number.MAX_SAFE_INTEGER) - (articleOrder.get(right.articleId) ?? Number.MAX_SAFE_INTEGER));
-}
-
-export async function screenArticles(
-  topic: string,
-  articles: Article[],
-  client: Pick<DeepSeekClient, 'complete'>,
-  model: string,
-  signal: AbortSignal,
-  onBatch?: (decisions: ScreeningDecision[]) => Promise<void> | void,
-): Promise<ScreeningDecision[]> {
-  return screenArticlesParallel(topic, articles, client, model, {
-    concurrency: 5,
-    launchIntervalMs: 1000,
-    signal,
-    onBatchComplete: (_batchIndex, decisions) => onBatch?.(decisions),
-  });
 }

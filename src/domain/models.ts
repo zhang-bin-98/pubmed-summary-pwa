@@ -72,7 +72,6 @@ export interface ReviewRun {
   stats: RunStats;
   mode?: ReviewMode;
   queryCount?: number;
-  screeningConcurrency?: 5;
   errorCode?: string;
   errorMessage?: string;
 }
