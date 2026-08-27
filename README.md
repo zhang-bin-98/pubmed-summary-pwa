@@ -1,12 +1,12 @@
 # PubMed 综述 PWA
 
-在浏览器中将研究主题转化为可编辑的中文医学综述：生成 PubMed 检索式、获取与筛选文献、撰写正文、整理引用，并导出 Word 文档。
-
 [![在线使用](https://img.shields.io/badge/在线使用-打开应用-176b5b)](https://zhang-bin-98.github.io/pubmed-summary-pwa/) [![Deploy GitHub Pages](https://github.com/zhang-bin-98/pubmed-summary-pwa/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/zhang-bin-98/pubmed-summary-pwa/actions/workflows/deploy-pages.yml)
+
+在浏览器中将研究主题转化为可编辑的中文医学综述：生成 PubMed 检索式、获取与筛选文献、撰写正文、整理引用，并导出 Word 文档。
 
 <p align="center">
   <a href="https://zhang-bin-98.github.io/pubmed-summary-pwa/">
-    <img src="docs/assets/quick-start.gif" alt="从输入研究主题、生成医学综述到预览 Word 文档的操作演示" width="480" />
+    <img src="docs/assets/quick-start.gif" alt="从输入研究主题、生成医学综述到预览 Word 文档的操作演示" width="360" />
   </a>
 </p>
 
