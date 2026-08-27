@@ -38,14 +38,15 @@ export async function mockReviewApis(page: Page) {
 export async function configureAndCompleteReview(page: Page) {
   await page.goto('/');
   await page.getByTitle('设置').click();
-  await page.getByLabel('DeepSeek API Key', { exact: true }).fill('test-deepseek');
+  await page.getByLabel('AI API Key', { exact: true }).fill('test-deepseek');
   await page.getByLabel('My NCBI API Key', { exact: true }).fill('test-ncbi');
-  await page.getByRole('button', { name: '测试 DeepSeek 连接' }).click();
+  await page.getByRole('button', { name: '测试 AI 连接' }).click();
   await page.getByRole('button', { name: '测试 NCBI 连接' }).click();
   await page.getByRole('button', { name: '保存设置' }).click();
   await page.waitForTimeout(50);
   await page.getByTitle('工作台').click();
   await page.getByLabel('研究主题').fill('癌症研究');
+  await page.getByText('确认检索式', { exact: true }).click();
   await page.getByRole('button', { name: '生成检索式' }).click();
   await page.getByRole('textbox', { name: 'PubMed 检索式', exact: true }).waitFor();
   const downloadPromise = page.waitForEvent('download');
@@ -58,9 +59,9 @@ export async function configureAndCompleteReview(page: Page) {
 export async function configureAndCompleteOneClickReview(page: Page) {
   await page.goto('/');
   await page.getByTitle('设置').click();
-  await page.getByLabel('DeepSeek API Key', { exact: true }).fill('test-deepseek');
+  await page.getByLabel('AI API Key', { exact: true }).fill('test-deepseek');
   await page.getByLabel('My NCBI API Key', { exact: true }).fill('test-ncbi');
-  await page.getByRole('button', { name: '测试 DeepSeek 连接' }).click();
+  await page.getByRole('button', { name: '测试 AI 连接' }).click();
   await page.getByRole('button', { name: '测试 NCBI 连接' }).click();
   await page.getByRole('button', { name: '保存设置' }).click();
   await page.waitForTimeout(50);

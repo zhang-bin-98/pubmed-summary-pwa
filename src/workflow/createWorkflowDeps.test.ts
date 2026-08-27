@@ -4,7 +4,7 @@ import { countConfirmedQuery, createWorkflowDeps, generateConfirmedQuery } from 
 
 it('uses original prompts for search, outline, and writing and the separate screening model', async () => {
   const complete = vi.fn().mockResolvedValueOnce('检索式').mockResolvedValueOnce('{"decisions":[]}').mockResolvedValueOnce('大纲').mockResolvedValueOnce('# 标题');
-  const deps = createWorkflowDeps({ deepSeek: { complete, listModels: vi.fn() }, ncbi: {}, repositories: {} } as never);
+  const deps = createWorkflowDeps({ deepSeek: { complete }, ncbi: {}, repositories: {} } as never);
   expect(typeof deps.generateOutline).toBe('function');
   expect(typeof deps.generateReview).toBe('function');
 });
@@ -36,12 +36,12 @@ it('persists decisions before a completed-batch checkpoint and reports progress'
   const saveCheckpoint = vi.fn(async (checkpoint: Checkpoint) => { writes.push(checkpoint.id); });
   const complete = vi.fn(async ({ prompt }: { prompt: string }) => screeningResponse(prompt));
   const deps = createWorkflowDeps({
-    deepSeek: { complete, listModels: vi.fn(async () => []) },
+    deepSeek: { complete },
     ncbi: {} as never,
     repositories: { saveScreening, saveCheckpoint, getRunBundle: vi.fn(async () => undefined) },
   });
   const progress = vi.fn();
-  const pending = deps.screenArticles(articles, { runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, signal: new AbortController().signal }, progress);
+  const pending = deps.screenArticles(articles, { runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, contextWindow: 1_000_000, signal: new AbortController().signal }, progress);
   await vi.runAllTimersAsync();
   await pending;
   vi.useRealTimers();
@@ -62,11 +62,11 @@ it('resumes only batches whose checkpoint and saved decisions exactly match', as
   };
   const complete = vi.fn(async ({ prompt }: { prompt: string }) => screeningResponse(prompt));
   const deps = createWorkflowDeps({
-    deepSeek: { complete, listModels: vi.fn(async () => []) },
+    deepSeek: { complete },
     ncbi: {} as never,
     repositories: { getRunBundle: vi.fn(async () => ({ checkpoints: [checkpoint], screening: firstBatchDecisions })) },
   });
-  const pending = deps.screenArticles(articles, { runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, signal: new AbortController().signal });
+  const pending = deps.screenArticles(articles, { runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, contextWindow: 1_000_000, signal: new AbortController().signal });
   await vi.runAllTimersAsync();
   const result = await pending;
   vi.useRealTimers();
@@ -77,7 +77,7 @@ it('resumes only batches whose checkpoint and saved decisions exactly match', as
 it('loads only the complete stage checkpoint when batch checkpoints share its stage', async () => {
   const completeCheckpoint: Checkpoint = { id: 'r:screening', runId: 'r', stage: 'screening', completedAt: 3, payload: 'complete' };
   const deps = createWorkflowDeps({
-    deepSeek: { complete: vi.fn(), listModels: vi.fn() },
+    deepSeek: { complete: vi.fn() },
     ncbi: {} as never,
     repositories: { getRunBundle: vi.fn(async () => ({ checkpoints: [
       { id: 'r:screening-batch:0', runId: 'r', stage: 'screening' as const, completedAt: 1, payload: { batchIndex: 0 } },

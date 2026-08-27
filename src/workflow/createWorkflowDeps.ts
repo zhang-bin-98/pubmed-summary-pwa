@@ -1,4 +1,4 @@
-import type { DeepSeekClient, DeepSeekModel } from '../api/deepseekClient';
+import type { DeepSeekClient } from '../api/deepseekClient';
 import type { NcbiClient } from '../api/ncbiClient';
 import type { Article, Checkpoint, GenerationArtifact, ScreeningDecision, ScreenedArticle, ValidatedReview } from '../domain/models';
 import { downloadBlob } from '../export/dataExport';
@@ -6,8 +6,7 @@ import { renderOutlinePrompt, renderSearchPrompt, renderWritingPrompt } from '..
 import { parsePubmedXml } from '../pubmed/parsePubmedXml';
 import { buildEvidenceBundle, formatAmaReference } from './references';
 import { validateAndReorderCitations } from './citations';
-import { selectWithinContext, estimateTokens, resolveContextWindow } from './contextBudget';
-import { resolveScreeningModel } from '../api/deepseekClient';
+import { selectWithinContext, estimateTokens } from './contextBudget';
 import { batchArticlesForScreening, screenArticlesParallel } from './relevance';
 import type { ScreeningProgress, WorkflowDeps, WorkflowInput } from './runWorkflow';
 
@@ -20,13 +19,12 @@ export interface WorkflowRepositories {
 }
 
 export interface WorkflowServices {
-  deepSeek: Pick<DeepSeekClient, 'complete' | 'listModels'>;
+  deepSeek: Pick<DeepSeekClient, 'complete'>;
   ncbi: Pick<NcbiClient, 'search' | 'fetchAbstractPages'>;
   repositories: WorkflowRepositories;
 }
 
 export function createWorkflowDeps(services: WorkflowServices): WorkflowDeps {
-  const modelsById = new Map<string, DeepSeekModel>();
   const repositories = services.repositories ?? {};
   const artifacts = new Map<string, { outline?: string; markdown?: string }>();
 
@@ -47,9 +45,7 @@ export function createWorkflowDeps(services: WorkflowServices): WorkflowDeps {
   };
 
   const screenArticles = async (articles: Article[], input: WorkflowInput, onProgress?: (progress: ScreeningProgress) => void): Promise<ScreenedArticle[]> => {
-    const models = (await services.deepSeek.listModels(input.signal)) ?? [];
-    models.forEach((model) => modelsById.set(model.id, model));
-    const screeningModel = resolveScreeningModel(models, input.modelId);
+    const screeningModel = input.modelId;
     const batches = batchArticlesForScreening(articles);
     const total = batches.length;
     let completed = 0;
@@ -116,10 +112,8 @@ export function createWorkflowDeps(services: WorkflowServices): WorkflowDeps {
   };
 
   const selectArticles = (items: ScreenedArticle[], input: WorkflowInput): Article[] => {
-    const model = modelsById.get(input.modelId);
-    const contextWindow = resolveContextWindow(input.modelId, model?.contextLength);
     const promptTokens = estimateTokens(buildEvidenceBundle([], { topic: input.topic, currentDate: new Date().toISOString().slice(0, 10) }));
-    return selectWithinContext(items, { contextWindow, promptTokens }).selected.map((item) => item.article);
+    return selectWithinContext(items, { contextWindow: input.contextWindow, promptTokens }).selected.map((item) => item.article);
   };
 
   const generateOutline = async (articles: Article[], input: WorkflowInput): Promise<string> => {

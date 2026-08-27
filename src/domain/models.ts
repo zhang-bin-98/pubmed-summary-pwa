@@ -19,8 +19,10 @@ export interface AppSettings {
   id?: 1;
   deepSeekApiKey: string;
   ncbiApiKey: string;
+  baseUrl: string;
   modelId: string;
   maxResults: number;
+  contextWindow: number;
   connectionChecks: {
     deepSeek: 'untested' | 'passed' | 'skipped';
     ncbi: 'untested' | 'passed' | 'skipped';
@@ -65,6 +67,8 @@ export interface ReviewRun {
   query: string | null;
   modelId: string;
   maxResults: number;
+  baseUrl?: string;
+  contextWindow?: number;
   stage: RunStage;
   status: RunStatus;
   createdAt: number;

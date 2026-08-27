@@ -13,7 +13,7 @@ describe('App', () => {
   it('shows the settings page and API key prompt when credentials are missing', async () => {
     render(<App />);
     await waitFor(() => expect(screen.getByRole('heading', { name: '设置' })).toBeInTheDocument());
-    expect(screen.getByText('请先设置 DeepSeek API Key 和 My NCBI API Key，保存后才能开始生成综述。')).toBeInTheDocument();
+    expect(screen.getByText('请先设置 AI API Key 和 My NCBI API Key，保存后才能开始生成综述。')).toBeInTheDocument();
   });
 
   it('keeps the settings page as the only active view until both keys are configured', async () => {

@@ -23,7 +23,7 @@ describe('runWorkflow', () => {
       checkpoint: vi.fn(async () => undefined),
       onProgress: progress,
     };
-    await runWorkflow({ runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, signal: new AbortController().signal }, deps);
+    await runWorkflow({ runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, contextWindow: 1_000_000, signal: new AbortController().signal }, deps);
     expect(progress).toHaveBeenCalledWith(expect.objectContaining({
       stage: 'screening',
       message: expect.stringContaining('第 2/15 批'),
@@ -47,7 +47,7 @@ describe('runWorkflow', () => {
       loadCheckpoint: vi.fn(async () => undefined),
       checkpoint: vi.fn(async () => undefined),
     };
-    await runWorkflow({ runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, signal: new AbortController().signal }, deps);
+    await runWorkflow({ runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, contextWindow: 1_000_000, signal: new AbortController().signal }, deps);
     expect(calls).toEqual(['fetch', 'screen', 'budget', 'outline', 'write', 'citations', 'docx']);
   });
 
@@ -64,7 +64,7 @@ describe('runWorkflow', () => {
       loadCheckpoint: vi.fn(async (stage: string) => stage === 'screening' ? [{ article, decision }] : undefined) as WorkflowDeps['loadCheckpoint'],
       checkpoint: vi.fn(async () => undefined),
     };
-    await runWorkflow({ runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, signal: new AbortController().signal }, deps);
+    await runWorkflow({ runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, contextWindow: 1_000_000, signal: new AbortController().signal }, deps);
     expect(calls).toEqual(['budget', 'outline', 'write', 'citations', 'docx']);
   });
 
@@ -83,7 +83,7 @@ describe('runWorkflow', () => {
       loadCheckpoint: vi.fn(async () => undefined),
       checkpoint: vi.fn(async () => undefined),
     };
-    await expect(runWorkflow({ runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, signal: controller.signal }, deps))
+    await expect(runWorkflow({ runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, contextWindow: 1_000_000, signal: controller.signal }, deps))
       .rejects.toMatchObject({ code: 'cancellation' });
     expect(fetchArticles).not.toHaveBeenCalled();
   });
@@ -108,7 +108,7 @@ describe('runWorkflow', () => {
       loadCheckpoint: vi.fn(async () => undefined),
       checkpoint: vi.fn(async () => undefined),
     };
-    await runWorkflow({ runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, signal: new AbortController().signal }, deps);
+    await runWorkflow({ runId: 'r', topic: '主题', query: 'term', modelId: 'model', maxResults: 300, contextWindow: 1_000_000, signal: new AbortController().signal }, deps);
     expect(calls).toEqual(['write', 'rewrite', 'docx']);
   });
 });

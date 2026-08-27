@@ -37,5 +37,5 @@ test('keeps history and exports offline without caching API responses', async ({
 
   await page.getByTitle('工作台').click();
   await page.getByLabel('研究主题').fill('离线主题');
-  await expect(page.getByRole('button', { name: '生成检索式' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '一键生成综述' })).toBeDisabled();
 });
