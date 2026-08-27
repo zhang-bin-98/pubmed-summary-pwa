@@ -2,14 +2,11 @@
 
 在浏览器中将研究主题转化为可编辑的中文医学综述：生成 PubMed 检索式、获取与筛选文献、撰写正文、整理引用，并导出 Word 文档。
 
-项目为纯前端 PWA，没有项目后端。你可以使用自己的 OpenAI-compatible AI API；My NCBI API Key 为可选配置。
-
-[![在线使用](https://img.shields.io/badge/在线使用-打开应用-176b5b)](https://zhang-bin-98.github.io/pubmed-summary-pwa/)
-[![Deploy GitHub Pages](https://github.com/zhang-bin-98/pubmed-summary-pwa/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/zhang-bin-98/pubmed-summary-pwa/actions/workflows/deploy-pages.yml)
+[![在线使用](https://img.shields.io/badge/在线使用-打开应用-176b5b)](https://zhang-bin-98.github.io/pubmed-summary-pwa/) [![Deploy GitHub Pages](https://github.com/zhang-bin-98/pubmed-summary-pwa/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/zhang-bin-98/pubmed-summary-pwa/actions/workflows/deploy-pages.yml)
 
 <p align="center">
   <a href="https://zhang-bin-98.github.io/pubmed-summary-pwa/">
-    <img src="docs/assets/quick-start.gif" alt="从输入研究主题、生成医学综述到预览 Word 文档的操作演示" width="960" />
+    <img src="docs/assets/quick-start.gif" alt="从输入研究主题、生成医学综述到预览 Word 文档的操作演示" width="480" />
   </a>
 </p>
 
@@ -20,7 +17,7 @@
 - 从研究主题生成 PubMed 检索式，并获取预计命中数量。
 - 支持“一键生成”和“确认检索式”两种模式；后者允许在检索前人工修改查询。
 - 自动完成摘要获取、并行相关性筛选、上下文选择、大纲生成、正文撰写和引用编号整理。
-- 支持 OpenAI-compatible Chat Completions 供应商，可自动读取模型列表，也可手动填写模型 ID。
+- 支持 OpenAI-compatible Chat Completions 供应商（默认为Deepseek），可自动读取模型列表，也可手动填写模型 ID。
 - My NCBI API Key 可选；未配置时使用匿名访问并限制请求频率。
 - 自动导出 DOCX；历史记录还可重新导出 DOCX、JSON 和 CSV。
 - 运行状态和中间检查点保存在本地，失败或取消的任务可从历史记录继续。
