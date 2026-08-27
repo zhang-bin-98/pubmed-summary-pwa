@@ -24,3 +24,15 @@ it('shows the required API key prompt when opened for initial setup', () => {
   render(<SettingsView initial={initial} models={[]} onTestDeepSeek={vi.fn()} onTestNcbi={vi.fn()} onSave={vi.fn()} onClearAll={vi.fn()} showApiKeyPrompt />);
   expect(screen.getByText('请先设置 AI API Key 和 My NCBI API Key，保存后才能开始生成综述。')).toBeInTheDocument();
 });
+
+it('allows saving a changed model without retesting an unchanged provider', async () => {
+  const user = userEvent.setup();
+  const onSave = vi.fn();
+  const configured = { ...initial, deepSeekApiKey: 'secret', ncbiApiKey: 'ncbi', connectionChecks: { deepSeek: 'passed' as const, ncbi: 'passed' as const } };
+  render(<SettingsView initial={configured} models={[]} onTestDeepSeek={vi.fn()} onTestNcbi={vi.fn()} onSave={onSave} onClearAll={vi.fn()} />);
+  await user.clear(screen.getByRole('combobox', { name: 'AI 模型 ID' }));
+  await user.type(screen.getByRole('combobox', { name: 'AI 模型 ID' }), 'qwen-plus');
+  expect(screen.getByRole('button', { name: '保存设置' })).toBeEnabled();
+  await user.click(screen.getByRole('button', { name: '保存设置' }));
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ modelId: 'qwen-plus' }));
+});

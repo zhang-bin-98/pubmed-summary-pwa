@@ -96,7 +96,7 @@ export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSa
         </div>
 
         <div className="form-grid">
-          <label className="field"><span>AI 模型 ID</span><input className="input" list="provider-model-options" autoComplete="off" value={draft.modelId} onChange={(event) => setDraft((current) => ({ ...current, modelId: event.target.value, connectionChecks: { ...current.connectionChecks, deepSeek: 'untested' } }))} /><datalist id="provider-model-options">{models.map((model) => <option key={model.id} value={model.id} />)}</datalist></label>
+          <label className="field"><span>AI 模型 ID</span><input className="input" list="provider-model-options" autoComplete="off" value={draft.modelId} onChange={(event) => setDraft((current) => ({ ...current, modelId: event.target.value }))} /><datalist id="provider-model-options">{models.map((model) => <option key={model.id} value={model.id} />)}</datalist></label>
           <label className="field"><span>上下文长度</span><input className="input" type="number" min={MIN_CONTEXT_WINDOW} step={1000} value={draft.contextWindow} onChange={(event) => setDraft((current) => ({ ...current, contextWindow: Number(event.target.value) }))} /></label>
         </div>
 
