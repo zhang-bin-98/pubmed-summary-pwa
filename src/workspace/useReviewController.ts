@@ -44,7 +44,7 @@ export function useReviewController(settings: AppSettings) {
   const generateQuery = useCallback(async ({ topic, modelId }: GenerateQueryInput) => {
     if (!requireConnections()) return undefined;
     if (!navigator.onLine) {
-      setState({ kind: 'failed', code: 'offline', message: '当前离线，无法请求 PubMed 或 DeepSeek。' });
+      setState({ kind: 'failed', code: 'offline', message: '当前离线，无法请求 PubMed 或 AI 供应商。' });
       return undefined;
     }
     activeController.current?.abort();
@@ -52,7 +52,7 @@ export function useReviewController(settings: AppSettings) {
     activeController.current = controller;
     setState({ kind: 'generating-query' });
     try {
-      const deepSeek = new DeepSeekClient(settings.deepSeekApiKey);
+      const deepSeek = new DeepSeekClient(settings.deepSeekApiKey, settings.baseUrl);
       const ncbi = new NcbiClient(settings.ncbiApiKey);
       const currentDate = new Date().toISOString().slice(0, 10);
       const query = await generateConfirmedQuery(topic, currentDate, modelId, deepSeek, controller.signal);
@@ -64,7 +64,7 @@ export function useReviewController(settings: AppSettings) {
       setState({ kind: 'failed', code, message: error instanceof Error ? error.message : '检索式生成失败' });
       return undefined;
     }
-  }, [requireConnections, settings.deepSeekApiKey, settings.ncbiApiKey]);
+  }, [requireConnections, settings.baseUrl, settings.deepSeekApiKey, settings.ncbiApiKey]);
 
   const startRun = useCallback(async ({ topic, query, modelId, maxResults, mode, queryCount, runId: resumedRunId }: StartRunInput) => {
     if (!requireConnections()) return;
@@ -81,6 +81,8 @@ export function useReviewController(settings: AppSettings) {
       query,
       modelId,
       maxResults,
+      baseUrl: settings.baseUrl,
+      contextWindow: settings.contextWindow,
       ...(isLegacyResume ? {} : { mode: mode ?? 'confirm-query', queryCount }),
       stage: 'fetching',
       status: 'active',
@@ -90,7 +92,7 @@ export function useReviewController(settings: AppSettings) {
     };
     await saveRun(run);
     const stats: RunStats = {};
-    const deepSeek = new DeepSeekClient(settings.deepSeekApiKey);
+    const deepSeek = new DeepSeekClient(settings.deepSeekApiKey, settings.baseUrl);
     const ncbi = new NcbiClient(settings.ncbiApiKey);
     const deps = createWorkflowDeps({ deepSeek, ncbi, repositories: { saveArticles, saveScreening, saveArtifact, saveCheckpoint, getRunBundle } });
     deps.onProgress = (progress) => {
@@ -100,7 +102,7 @@ export function useReviewController(settings: AppSettings) {
       void saveRun(run);
     };
     try {
-      const result = await runWorkflow({ runId, topic, query, modelId, maxResults, signal: controller.signal }, deps);
+      const result = await runWorkflow({ runId, topic, query, modelId, maxResults, contextWindow: settings.contextWindow, signal: controller.signal }, deps);
       const stored = await getRunBundle(runId);
       stats.fetched = stored?.articles.length ?? result.screenedArticles.length;
       stats.withAbstract = stored?.articles.filter((article) => article.abstract.trim().length > 0).length ?? result.screenedArticles.length;
@@ -117,7 +119,7 @@ export function useReviewController(settings: AppSettings) {
       await saveRun(run);
       setState(cancelled ? { kind: 'cancelled', runId } : { kind: 'failed', runId, code, message: run.errorMessage ?? '运行失败' });
     }
-  }, [requireConnections, settings.deepSeekApiKey, settings.ncbiApiKey]);
+  }, [requireConnections, settings.baseUrl, settings.contextWindow, settings.deepSeekApiKey, settings.ncbiApiKey]);
 
   const cancel = useCallback(() => activeController.current?.abort(), []);
 

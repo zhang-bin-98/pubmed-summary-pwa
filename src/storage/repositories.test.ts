@@ -12,8 +12,10 @@ describe('local repositories', () => {
     await saveSettings({
       deepSeekApiKey: 'ds-key',
       ncbiApiKey: 'ncbi-key',
+      baseUrl: 'https://api.deepseek.com',
       modelId: 'deepseek-v4-flash',
       maxResults: 300,
+      contextWindow: 1_000_000,
       connectionChecks: { deepSeek: 'passed', ncbi: 'passed' },
     });
     expect(await getSettings()).toMatchObject({ modelId: 'deepseek-v4-flash', maxResults: 300 });

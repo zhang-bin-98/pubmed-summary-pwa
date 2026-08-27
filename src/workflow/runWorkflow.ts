@@ -13,6 +13,7 @@ export interface WorkflowInput {
   query: string;
   modelId: string;
   maxResults: number;
+  contextWindow: number;
   signal: AbortSignal;
 }
 
@@ -67,10 +68,10 @@ function mapWorkflowError(error: unknown): WorkflowError {
   if (isAbortError(error)) return new WorkflowError('cancellation', '工作流已取消', { cause: error });
   const code = error && typeof error === 'object' && 'code' in error ? String((error as { code?: unknown }).code) : '';
   const normalizedCode: WorkflowErrorCode | undefined =
-    code === 'deepseek-auth' || code === 'ncbi-auth' ? 'auth' :
-      code === 'deepseek-rate-limit' || code === 'ncbi-rate-limit' ? 'rate-limit' :
-        code === 'deepseek-network' || code === 'ncbi-network' ? 'network' :
-          code === 'deepseek-response' || code === 'ncbi-response' ? 'network' :
+    code === 'deepseek-auth' || code === 'provider-auth' || code === 'ncbi-auth' ? 'auth' :
+      code === 'deepseek-rate-limit' || code === 'provider-rate-limit' || code === 'ncbi-rate-limit' ? 'rate-limit' :
+        code === 'deepseek-network' || code === 'provider-network' || code === 'ncbi-network' ? 'network' :
+          code === 'deepseek-response' || code === 'provider-response' || code === 'ncbi-response' ? 'network' :
             code === 'storage-quota' || (error instanceof Error && error.name === 'QuotaExceededError') ? 'storage-quota' :
               ['auth', 'network', 'rate-limit', 'xml', 'no-abstracts', 'no-relevant-articles', 'screening-format', 'context-budget', 'citation-validation', 'cancellation'].includes(code)
                 ? code as WorkflowErrorCode

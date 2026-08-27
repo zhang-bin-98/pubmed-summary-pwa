@@ -23,8 +23,8 @@ export function estimateTokens(value: string): number {
   return Math.ceil((ascii / 3 + nonAscii * 1.5) * 1.15);
 }
 
-export function resolveContextWindow(_modelId: string, apiValue?: number): number {
-  if (apiValue && Number.isFinite(apiValue) && apiValue >= 16_000) return apiValue;
+export function resolveContextWindow(value?: number): number {
+  if (value !== undefined && Number.isFinite(value) && Number.isInteger(value) && value >= 16_000) return value;
   return 1_000_000;
 }
 

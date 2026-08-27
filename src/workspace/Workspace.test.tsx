@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import { Workspace } from './Workspace';
 
-const settings = { deepSeekApiKey: 'd', ncbiApiKey: 'n', modelId: 'deepseek-v4-flash', maxResults: 300, connectionChecks: { deepSeek: 'passed' as const, ncbi: 'passed' as const } };
+const settings = { deepSeekApiKey: 'd', ncbiApiKey: 'n', baseUrl: 'https://api.deepseek.com', modelId: 'deepseek-v4-flash', maxResults: 300, contextWindow: 1_000_000, connectionChecks: { deepSeek: 'passed' as const, ncbi: 'passed' as const } };
 
 it('renders every model returned by the settings scan', () => {
   render(<Workspace

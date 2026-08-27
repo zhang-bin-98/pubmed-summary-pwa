@@ -17,8 +17,9 @@ describe('context budget', () => {
     expect(result.selected.every((item) => item.article.abstract.length === 100)).toBe(true);
   });
 
-  it('uses the current one-million-token API fallback when capability metadata is absent', () => {
-    expect(resolveContextWindow('deepseek-v4-flash')).toBe(1_000_000);
-    expect(resolveContextWindow('deepseek-v4-pro', 1_048_576)).toBe(1_048_576);
+  it('uses only the manually configured context window', () => {
+    expect(resolveContextWindow()).toBe(1_000_000);
+    expect(resolveContextWindow(1_048_576)).toBe(1_048_576);
+    expect(resolveContextWindow(15_999)).toBe(1_000_000);
   });
 });
