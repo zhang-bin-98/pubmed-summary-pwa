@@ -55,6 +55,7 @@ export function App() {
           <SettingsView
             initial={settingsState.settings}
             models={settingsState.models}
+            onLoadDeepSeekModels={settingsState.loadDeepSeekModels}
             onTestDeepSeek={settingsState.testDeepSeek}
             onTestNcbi={settingsState.testNcbi}
             onSave={settingsState.save}

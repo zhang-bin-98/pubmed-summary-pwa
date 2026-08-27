@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { CheckCircle2, Eye, EyeOff, KeyRound, Trash2, X } from 'lucide-react';
 import { MIN_CONTEXT_WINDOW, normalizeBaseUrl, type DeepSeekModel } from '../api/deepseekClient';
 import type { AppSettings } from '../domain/models';
+import { DEFAULT_MODEL_ID, type DeepSeekTestResult } from './useSettings';
 
 export interface SettingsViewProps {
   initial: AppSettings;
   models: DeepSeekModel[];
-  onTestDeepSeek(settings: AppSettings): Promise<boolean | void> | boolean | void;
+  onLoadDeepSeekModels?(settings: AppSettings, signal: AbortSignal): Promise<DeepSeekModel[]>;
+  onTestDeepSeek(settings: AppSettings): Promise<boolean | DeepSeekTestResult | void> | boolean | DeepSeekTestResult | void;
   onTestNcbi(settings: AppSettings): Promise<boolean | void> | boolean | void;
   onSave(settings: AppSettings): Promise<void> | void;
   onClearAll(): Promise<void> | void;
@@ -15,7 +17,18 @@ export interface SettingsViewProps {
   showApiKeyPrompt?: boolean;
 }
 
-export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSave, onClearAll, onClearDeepSeekKey, onClearNcbiKey, showApiKeyPrompt = false }: SettingsViewProps) {
+function settingsChanged(current: AppSettings, saved: AppSettings): boolean {
+  return current.deepSeekApiKey !== saved.deepSeekApiKey
+    || current.ncbiApiKey !== saved.ncbiApiKey
+    || current.baseUrl !== saved.baseUrl
+    || current.modelId !== saved.modelId
+    || current.maxResults !== saved.maxResults
+    || current.contextWindow !== saved.contextWindow
+    || current.connectionChecks.deepSeek !== saved.connectionChecks.deepSeek
+    || current.connectionChecks.ncbi !== saved.connectionChecks.ncbi;
+}
+
+export function SettingsView({ initial, models, onLoadDeepSeekModels, onTestDeepSeek, onTestNcbi, onSave, onClearAll, onClearDeepSeekKey, onClearNcbiKey, showApiKeyPrompt = false }: SettingsViewProps) {
   const [draft, setDraft] = useState(initial);
   const [showDeepSeek, setShowDeepSeek] = useState(false);
   const [showNcbi, setShowNcbi] = useState(false);
@@ -23,6 +36,45 @@ export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSa
   const [testError, setTestError] = useState<string>();
 
   useEffect(() => setDraft(initial), [initial]);
+  useEffect(() => {
+    if (!onLoadDeepSeekModels || !draft.deepSeekApiKey.trim()) return;
+    let normalizedBaseUrl: string;
+    try { normalizedBaseUrl = normalizeBaseUrl(draft.baseUrl); } catch { return; }
+    if (
+      draft.modelId.trim()
+      && draft.deepSeekApiKey.trim() === initial.deepSeekApiKey.trim()
+      && normalizedBaseUrl === normalizeBaseUrl(initial.baseUrl)
+    ) return;
+
+    const controller = new AbortController();
+    const snapshot = { key: draft.deepSeekApiKey, baseUrl: draft.baseUrl, modelId: draft.modelId };
+    const timeout = window.setTimeout(() => {
+      void onLoadDeepSeekModels(draft, controller.signal)
+        .then((available) => {
+          if (controller.signal.aborted) return;
+          setDraft((current) => {
+            if (current.deepSeekApiKey !== snapshot.key || current.baseUrl !== snapshot.baseUrl) return current;
+            const selected = available.find((model) => model.id === current.modelId)
+              ?? (current.modelId === snapshot.modelId ? available[0] : undefined);
+            if (!selected) return current.modelId.trim() ? current : { ...current, modelId: DEFAULT_MODEL_ID };
+            return {
+              ...current,
+              modelId: selected.id,
+              contextWindow: Number.isInteger(selected.contextLength) && (selected.contextLength ?? 0) >= MIN_CONTEXT_WINDOW
+                ? selected.contextLength!
+                : current.contextWindow,
+            };
+          });
+        })
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          setDraft((current) => current.deepSeekApiKey === snapshot.key && current.baseUrl === snapshot.baseUrl && !current.modelId.trim()
+            ? { ...current, modelId: DEFAULT_MODEL_ID }
+            : current);
+        });
+    }, 350);
+    return () => { window.clearTimeout(timeout); controller.abort(); };
+  }, [draft.baseUrl, draft.deepSeekApiKey, initial.baseUrl, initial.deepSeekApiKey, onLoadDeepSeekModels]);
 
   const setKey = (provider: 'deepSeek' | 'ncbi', value: string) => {
     setDraft((current) => ({
@@ -44,9 +96,19 @@ export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSa
     setTesting(provider);
     setTestError(undefined);
     try {
-      const passed = provider === 'deepSeek' ? await onTestDeepSeek(draft) : await onTestNcbi(draft);
-      if (passed !== false) {
-        setDraft((current) => ({ ...current, connectionChecks: { ...current.connectionChecks, [provider]: 'passed' } }));
+      const result = provider === 'deepSeek' ? await onTestDeepSeek(draft) : await onTestNcbi(draft);
+      if (result !== false) {
+        const selectedModel = provider === 'deepSeek' && result && typeof result === 'object' ? result.selectedModel : undefined;
+        setDraft((current) => ({
+          ...current,
+          ...(selectedModel ? {
+            modelId: selectedModel.id,
+            contextWindow: Number.isInteger(selectedModel.contextLength) && (selectedModel.contextLength ?? 0) >= MIN_CONTEXT_WINDOW
+              ? selectedModel.contextLength!
+              : current.contextWindow,
+          } : {}),
+          connectionChecks: { ...current.connectionChecks, [provider]: 'passed' },
+        }));
       }
     } catch (error) {
       setDraft((current) => ({ ...current, connectionChecks: { ...current.connectionChecks, [provider]: 'untested' } }));
@@ -58,7 +120,8 @@ export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSa
 
   let validBaseUrl = false;
   try { validBaseUrl = Boolean(normalizeBaseUrl(draft.baseUrl)); } catch { validBaseUrl = false; }
-  const canSave = Boolean(draft.deepSeekApiKey.trim() && draft.modelId.trim())
+  const canSave = settingsChanged(draft, initial)
+    && Boolean(draft.deepSeekApiKey.trim() && draft.modelId.trim())
     && validBaseUrl
     && draft.connectionChecks.deepSeek !== 'untested'
     && draft.connectionChecks.ncbi !== 'untested'
@@ -89,15 +152,14 @@ export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSa
             <button type="button" className="icon-button" aria-label="清除 AI API Key" title="清除 Key" onClick={() => { setKey('deepSeek', ''); void onClearDeepSeekKey?.(); }}><X /></button>
           </span>
         </div>
-        <div className="setting-actions">
-          <button type="button" className="button button--secondary" disabled={!draft.deepSeekApiKey.trim() || !draft.modelId.trim() || !validBaseUrl || testing !== null} onClick={() => void testConnection('deepSeek')}>{testing === 'deepSeek' ? '测试中...' : '测试 AI 连接'}</button>
-          <button type="button" className="button button--secondary" aria-label="跳过 AI 测试" onClick={() => setDraft((current) => ({ ...current, connectionChecks: { ...current.connectionChecks, deepSeek: 'skipped' } }))}>跳过测试</button>
-          {draft.connectionChecks.deepSeek !== 'untested' && <span className="connection-status"><CheckCircle2 />{draft.connectionChecks.deepSeek === 'passed' ? '已通过' : '已跳过'}</span>}
-        </div>
-
         <div className="form-grid">
           <label className="field"><span>AI 模型 ID</span><input className="input" list="provider-model-options" autoComplete="off" value={draft.modelId} onChange={(event) => setDraft((current) => ({ ...current, modelId: event.target.value }))} /><datalist id="provider-model-options">{models.map((model) => <option key={model.id} value={model.id} />)}</datalist></label>
           <label className="field"><span>上下文长度</span><input className="input" type="number" min={MIN_CONTEXT_WINDOW} step={1000} value={draft.contextWindow} onChange={(event) => setDraft((current) => ({ ...current, contextWindow: Number(event.target.value) }))} /></label>
+        </div>
+        <div className="setting-actions">
+          <button type="button" className="button button--secondary" disabled={!draft.deepSeekApiKey.trim() || !validBaseUrl || testing !== null} onClick={() => void testConnection('deepSeek')}>{testing === 'deepSeek' ? '测试中...' : '测试 AI 连接'}</button>
+          <button type="button" className="button button--secondary" aria-label="跳过 AI 测试" onClick={() => setDraft((current) => ({ ...current, connectionChecks: { ...current.connectionChecks, deepSeek: 'skipped' } }))}>跳过测试</button>
+          {draft.connectionChecks.deepSeek !== 'untested' && <span className="connection-status"><CheckCircle2 />{draft.connectionChecks.deepSeek === 'passed' ? '已通过' : '已跳过'}</span>}
         </div>
 
         <div className="field">
