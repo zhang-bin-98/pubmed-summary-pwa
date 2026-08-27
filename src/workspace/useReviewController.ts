@@ -34,8 +34,8 @@ export function useReviewController(settings: AppSettings) {
   useEffect(() => () => activeController.current?.abort(), []);
 
   const requireConnections = useCallback(() => {
-    if (!settings.deepSeekApiKey || !settings.ncbiApiKey || !hasConnectionDecision(settings.connectionChecks.deepSeek) || !hasConnectionDecision(settings.connectionChecks.ncbi)) {
-      setState({ kind: 'failed', code: 'connection-required', message: '请先在设置中保存 API Key，并完成或跳过连接测试。' });
+    if (!settings.deepSeekApiKey.trim() || !hasConnectionDecision(settings.connectionChecks.deepSeek) || !hasConnectionDecision(settings.connectionChecks.ncbi)) {
+      setState({ kind: 'failed', code: 'connection-required', message: '请先在设置中填写 AI API Key，并完成或跳过 AI 与 NCBI 连接测试。' });
       return false;
     }
     return true;

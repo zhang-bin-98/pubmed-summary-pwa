@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { configureAndCompleteOneClickReview, configureAndCompleteReview, mockReviewApis } from './helpers';
+import { configureAndCompleteAnonymousOneClickReview, configureAndCompleteReview, mockReviewApis } from './helpers';
 
 test('confirms the query, screens articles, and downloads Word', async ({ page }, testInfo) => {
   await mockReviewApis(page);
@@ -18,9 +18,11 @@ test('confirms the query, screens articles, and downloads Word', async ({ page }
   expect(workspace!.y).toBeGreaterThanOrEqual(topbar!.y + topbar!.height);
 });
 
-test('runs one-click mode without showing query confirmation and downloads Word', async ({ page }) => {
-  await mockReviewApis(page);
-  const download = await configureAndCompleteOneClickReview(page);
+test('runs one-click mode with anonymous NCBI access and downloads Word', async ({ page }) => {
+  const { ncbiPostBodies } = await mockReviewApis(page);
+  const download = await configureAndCompleteAnonymousOneClickReview(page);
   expect(download.suggestedFilename()).toMatch(/癌症研究综述.*\.docx$/);
   await expect(page.getByRole('heading', { name: '确认 PubMed 检索式' })).toHaveCount(0);
+  expect(ncbiPostBodies.length).toBeGreaterThan(0);
+  for (const body of ncbiPostBodies) expect(new URLSearchParams(body).has('api_key')).toBe(false);
 });

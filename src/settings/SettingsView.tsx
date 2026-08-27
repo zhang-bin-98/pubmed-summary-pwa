@@ -58,7 +58,7 @@ export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSa
 
   let validBaseUrl = false;
   try { validBaseUrl = Boolean(normalizeBaseUrl(draft.baseUrl)); } catch { validBaseUrl = false; }
-  const canSave = Boolean(draft.deepSeekApiKey.trim() && draft.ncbiApiKey.trim() && draft.modelId.trim())
+  const canSave = Boolean(draft.deepSeekApiKey.trim() && draft.modelId.trim())
     && validBaseUrl
     && draft.connectionChecks.deepSeek !== 'untested'
     && draft.connectionChecks.ncbi !== 'untested'
@@ -74,7 +74,7 @@ export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSa
         <KeyRound aria-hidden="true" />
         <div><h2 id="settings-heading">设置</h2><p>AI 供应商、API 凭据与检索默认值</p></div>
       </div>
-      {showApiKeyPrompt && <div className="alert alert--setup" role="alert"><strong>需要先完成设置</strong><p>请先设置 AI API Key 和 My NCBI API Key，保存后才能开始生成综述。</p></div>}
+      {showApiKeyPrompt && <div className="alert alert--setup" role="alert"><strong>需要先完成设置</strong><p>请填写 AI API Key，并完成或跳过 AI 与 NCBI 连接测试，保存后即可开始生成综述。</p></div>}
       <div className="alert" role="alert">API Key 将保存在当前浏览器的 IndexedDB 中。共用设备或浏览器扩展可能读取本地数据，请仅在可信设备上使用。</div>
       <div className="alert" role="note">自定义 AI 供应商必须支持 OpenAI-compatible Chat Completions API、Bearer API Key 和浏览器 CORS。</div>
       {testError && <div className="alert alert--error" role="alert">{testError}</div>}
@@ -90,7 +90,7 @@ export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSa
           </span>
         </div>
         <div className="setting-actions">
-          <button type="button" className="button button--secondary" disabled={!draft.deepSeekApiKey || !draft.modelId.trim() || !validBaseUrl || testing !== null} onClick={() => void testConnection('deepSeek')}>{testing === 'deepSeek' ? '测试中...' : '测试 AI 连接'}</button>
+          <button type="button" className="button button--secondary" disabled={!draft.deepSeekApiKey.trim() || !draft.modelId.trim() || !validBaseUrl || testing !== null} onClick={() => void testConnection('deepSeek')}>{testing === 'deepSeek' ? '测试中...' : '测试 AI 连接'}</button>
           <button type="button" className="button button--secondary" aria-label="跳过 AI 测试" onClick={() => setDraft((current) => ({ ...current, connectionChecks: { ...current.connectionChecks, deepSeek: 'skipped' } }))}>跳过测试</button>
           {draft.connectionChecks.deepSeek !== 'untested' && <span className="connection-status"><CheckCircle2 />{draft.connectionChecks.deepSeek === 'passed' ? '已通过' : '已跳过'}</span>}
         </div>
@@ -101,15 +101,16 @@ export function SettingsView({ initial, models, onTestDeepSeek, onTestNcbi, onSa
         </div>
 
         <div className="field">
-          <label htmlFor="ncbi-api-key">My NCBI API Key</label>
+          <label htmlFor="ncbi-api-key">My NCBI API Key（可选）</label>
           <span className="input-with-actions">
             <input id="ncbi-api-key" className="input" type={showNcbi ? 'text' : 'password'} autoComplete="off" value={draft.ncbiApiKey} onChange={(event) => setKey('ncbi', event.target.value)} />
             <button type="button" className="icon-button" aria-label={showNcbi ? '隐藏 My NCBI API Key' : '显示 My NCBI API Key'} title={showNcbi ? '隐藏 Key' : '显示 Key'} onClick={() => setShowNcbi((value) => !value)}>{showNcbi ? <EyeOff /> : <Eye />}</button>
             <button type="button" className="icon-button" aria-label="清除 My NCBI API Key" title="清除 Key" onClick={() => { setKey('ncbi', ''); void onClearNcbiKey?.(); }}><X /></button>
           </span>
+          <small>留空时使用匿名访问，NCBI 请求速率限制为每秒 3 次。</small>
         </div>
         <div className="setting-actions">
-          <button type="button" className="button button--secondary" disabled={!draft.ncbiApiKey || testing !== null} onClick={() => void testConnection('ncbi')}>{testing === 'ncbi' ? '测试中...' : '测试 NCBI 连接'}</button>
+          <button type="button" className="button button--secondary" disabled={testing !== null} onClick={() => void testConnection('ncbi')}>{testing === 'ncbi' ? '测试中...' : '测试 NCBI 连接'}</button>
           <button type="button" className="button button--secondary" aria-label="跳过 NCBI 测试" onClick={() => setDraft((current) => ({ ...current, connectionChecks: { ...current.connectionChecks, ncbi: 'skipped' } }))}>跳过测试</button>
           {draft.connectionChecks.ncbi !== 'untested' && <span className="connection-status"><CheckCircle2 />{draft.connectionChecks.ncbi === 'passed' ? '已通过' : '已跳过'}</span>}
         </div>
