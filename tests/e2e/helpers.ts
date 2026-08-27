@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 export async function mockReviewApis(page: Page) {
+  const ncbiPostBodies: string[] = [];
   await page.route('https://api.deepseek.com/**', async (route) => {
     const url = route.request().url();
     if (url.endsWith('/models')) {
@@ -27,19 +28,21 @@ export async function mockReviewApis(page: Page) {
     await route.fulfill({ json: { choices: [{ message: { content: '# 癌症研究综述\n\n## 1. 引言\n\n正文[1]。\n\n## 2. 结论\n\n结论[1]。' } }] } });
   });
   await page.route('https://eutils.ncbi.nlm.nih.gov/**', async (route) => {
+    if (route.request().method() === 'POST') ncbiPostBodies.push(route.request().postData() ?? '');
     if (route.request().url().includes('efetch')) {
       await route.fulfill({ path: 'tests/fixtures/pubmed-sample.xml', contentType: 'application/xml' });
       return;
     }
     await route.fulfill({ json: { esearchresult: { count: '1', idlist: ['123'], webenv: 'env', querykey: '1' } } });
   });
+  return { ncbiPostBodies };
 }
 
 export async function configureAndCompleteReview(page: Page) {
   await page.goto('/');
   await page.getByTitle('设置').click();
   await page.getByLabel('AI API Key', { exact: true }).fill('test-deepseek');
-  await page.getByLabel('My NCBI API Key', { exact: true }).fill('test-ncbi');
+  await page.getByLabel(/^My NCBI API Key/).fill('test-ncbi');
   await page.getByRole('button', { name: '测试 AI 连接' }).click();
   await page.getByRole('button', { name: '测试 NCBI 连接' }).click();
   await page.getByRole('button', { name: '保存设置' }).click();
@@ -56,11 +59,10 @@ export async function configureAndCompleteReview(page: Page) {
   return download;
 }
 
-export async function configureAndCompleteOneClickReview(page: Page) {
+export async function configureAndCompleteAnonymousOneClickReview(page: Page) {
   await page.goto('/');
   await page.getByTitle('设置').click();
   await page.getByLabel('AI API Key', { exact: true }).fill('test-deepseek');
-  await page.getByLabel('My NCBI API Key', { exact: true }).fill('test-ncbi');
   await page.getByRole('button', { name: '测试 AI 连接' }).click();
   await page.getByRole('button', { name: '测试 NCBI 连接' }).click();
   await page.getByRole('button', { name: '保存设置' }).click();

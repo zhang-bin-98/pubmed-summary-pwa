@@ -4,15 +4,21 @@ import { NcbiClient } from '../api/ncbiClient';
 import type { AppSettings } from '../domain/models';
 import { clearAllLocalData, getSettings, saveSettings } from '../storage/repositories';
 
+export const DEFAULT_MODEL_ID = 'deepseek-v4-flash';
+
 export const DEFAULT_SETTINGS: AppSettings = {
   deepSeekApiKey: '',
   ncbiApiKey: '',
   baseUrl: DEFAULT_BASE_URL,
-  modelId: 'deepseek-v4-flash',
+  modelId: DEFAULT_MODEL_ID,
   maxResults: 300,
   contextWindow: DEFAULT_CONTEXT_WINDOW,
   connectionChecks: { deepSeek: 'untested', ncbi: 'untested' },
 };
+
+export interface DeepSeekTestResult {
+  selectedModel: DeepSeekModel;
+}
 
 export function normalizeSettings(saved?: Partial<AppSettings> | null): AppSettings {
   const candidate = saved ?? {};
@@ -59,11 +65,33 @@ export function useSettings() {
     setSettings(normalized);
   }, []);
 
+  const loadDeepSeekModels = useCallback(async (next: AppSettings, signal = new AbortController().signal) => {
+    const client = new DeepSeekClient(next.deepSeekApiKey, next.baseUrl);
+    setModels([]);
+    const available = await client.listModels(signal);
+    setModels(available);
+    return available;
+  }, []);
+
   const testDeepSeek = useCallback(async (next: AppSettings) => {
     const client = new DeepSeekClient(next.deepSeekApiKey, next.baseUrl);
-    await client.complete({ model: next.modelId, prompt: 'Reply with OK.', signal: new AbortController().signal, maxTokens: 8 });
-    return true;
-  }, []);
+    const signal = new AbortController().signal;
+    let available: DeepSeekModel[] = [];
+    let modelError: unknown;
+    try {
+      available = await loadDeepSeekModels(next, signal);
+    } catch (error) {
+      setModels([]);
+      modelError = error;
+    }
+    const requestedModel = next.modelId.trim();
+    const selectedModel = available.find((model) => model.id === requestedModel)
+      ?? available[0]
+      ?? (requestedModel ? { id: requestedModel } : undefined);
+    if (!selectedModel) throw modelError instanceof Error ? modelError : new Error('未获取到可用模型，请手动填写模型 ID 后重试');
+    await client.complete({ model: selectedModel.id, prompt: 'Reply with OK.', signal, maxTokens: 8 });
+    return { selectedModel } satisfies DeepSeekTestResult;
+  }, [loadDeepSeekModels]);
 
   const testNcbi = useCallback(async (next: AppSettings) => {
     await new NcbiClient(next.ncbiApiKey).count('all[sb]', new AbortController().signal);
@@ -88,6 +116,7 @@ export function useSettings() {
     deepSeekStatus: settings.connectionChecks.deepSeek,
     ncbiStatus: settings.connectionChecks.ncbi,
     save,
+    loadDeepSeekModels,
     testDeepSeek,
     testNcbi,
     skipDeepSeekTest,

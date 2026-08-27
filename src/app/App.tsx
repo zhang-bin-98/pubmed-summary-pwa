@@ -9,12 +9,18 @@ import { Workspace } from '../workspace/Workspace';
 
 type AppView = 'workspace' | 'history' | 'settings';
 
+function hasConnectionDecision(value: string): boolean {
+  return value === 'passed' || value === 'skipped';
+}
+
 export function App() {
   const [view, setView] = useState<AppView>('workspace');
   const [online, setOnline] = useState(() => navigator.onLine);
   const settingsState = useSettings();
-  const needsApiKeys = !settingsState.settings.deepSeekApiKey.trim() || !settingsState.settings.ncbiApiKey.trim();
-  const activeView: AppView = needsApiKeys ? 'settings' : view;
+  const needsSetup = !settingsState.settings.deepSeekApiKey.trim()
+    || !hasConnectionDecision(settingsState.settings.connectionChecks.deepSeek)
+    || !hasConnectionDecision(settingsState.settings.connectionChecks.ncbi);
+  const activeView: AppView = needsSetup ? 'settings' : view;
   const reviewController = useReviewController(settingsState.settings);
   const historyState = useHistory(async (runId) => {
     setView('workspace');
@@ -43,19 +49,20 @@ export function App() {
       </header>
       {!online && <div className="offline-banner" role="status">当前离线：可查看历史并重新导出，不能发起新的 PubMed 或 AI 请求。</div>}
       <main>
-        {view === 'workspace' && !needsApiKeys && <Workspace settings={settingsState.settings} models={settingsState.models} controller={reviewController} onOpenSettings={() => setView('settings')} online={online} />}
+        {view === 'workspace' && !needsSetup && <Workspace settings={settingsState.settings} models={settingsState.models} controller={reviewController} onOpenSettings={() => setView('settings')} online={online} />}
         {activeView === 'history' && <HistoryView runs={historyState.runs} error={historyState.error} storage={historyState.storage} onResume={historyState.resume} onDownloadDocx={historyState.downloadDocx} onExportJson={historyState.exportJson} onExportCsv={historyState.exportCsv} onDelete={historyState.deleteRun} onClear={historyState.clearHistory} />}
-        {(activeView === 'settings' || (!settingsState.loading && needsApiKeys)) && (
+        {(activeView === 'settings' || (!settingsState.loading && needsSetup)) && (
           <SettingsView
             initial={settingsState.settings}
             models={settingsState.models}
+            onLoadDeepSeekModels={settingsState.loadDeepSeekModels}
             onTestDeepSeek={settingsState.testDeepSeek}
             onTestNcbi={settingsState.testNcbi}
             onSave={settingsState.save}
             onClearAll={settingsState.clearAll}
             onClearDeepSeekKey={settingsState.clearDeepSeekKey}
             onClearNcbiKey={settingsState.clearNcbiKey}
-            showApiKeyPrompt={needsApiKeys}
+            showApiKeyPrompt={needsSetup}
           />
         )}
       </main>
