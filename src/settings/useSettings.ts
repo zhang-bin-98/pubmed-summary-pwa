@@ -5,6 +5,7 @@ import type { AppSettings } from '../domain/models';
 import { clearAllLocalData, getSettings, saveSettings } from '../storage/repositories';
 
 export const DEFAULT_MODEL_ID = 'deepseek-v4-flash';
+const CONNECTION_TEST_MAX_TOKENS = 64;
 
 export const DEFAULT_SETTINGS: AppSettings = {
   deepSeekApiKey: '',
@@ -89,7 +90,10 @@ export function useSettings() {
       ?? available[0]
       ?? (requestedModel ? { id: requestedModel } : undefined);
     if (!selectedModel) throw modelError instanceof Error ? modelError : new Error('未获取到可用模型，请手动填写模型 ID 后重试');
-    await client.complete({ model: selectedModel.id, prompt: 'Reply with OK.', signal, maxTokens: 8 });
+    // Reasoning models may spend part of the output budget before producing
+    // visible content. Eight tokens can therefore return HTTP 200 with an
+    // empty message and make a valid connection look broken.
+    await client.complete({ model: selectedModel.id, prompt: 'Reply with OK only.', signal, maxTokens: CONNECTION_TEST_MAX_TOKENS });
     return { selectedModel } satisfies DeepSeekTestResult;
   }, [loadDeepSeekModels]);
 
